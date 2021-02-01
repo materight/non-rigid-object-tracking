@@ -1,5 +1,8 @@
 Output/
 Sources/
 
-**/.DS_Store
+# Editor directories and files
+.DS_Store
 __pycache__
+.idea
+.vscode
