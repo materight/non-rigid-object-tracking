@@ -6,16 +6,13 @@ import cv2 as cv
 import numpy as np
 import yaml
 import scipy as sp
-from scipy import signal
-import math
 from random import randint
 import webcolors
-import imutils
+#import imutils
 from sklearn.metrics import mean_squared_error
-import sys
+#import sys
 import matplotlib.pyplot as plt
-import seaborn as sns
-import webcolors
+#import seaborn as sns
 import time
 
 
@@ -104,14 +101,14 @@ output2 = '../Output/Tracking/tracked_homography.avi'
 output3 = "../Output/Tracking/bounding_box.png"
 output4 = "../Output/Tracking/data_players.txt"
 output5 = "../Output/Tracking/results.png"
-tau = 0.3
+tau = 0.6
 out = cv.VideoWriter(output1, fourcc, 25.0, (1344, 756))
 points = cv.VideoWriter(output2, fourcc, 25.0, (1081, 612))
 cap = cv.VideoCapture('../Output/Video/clip3.mp4')
 fps = cap.get(cv.CAP_PROP_FPS)
 cap.isOpened()
 ok, frame = cap.read()
-smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
+smallFrame = cv.resize(frame, (0, 0), fx=0.25, fy=0.25)
 kalman_filters = []
 kalman_filtersp1 = []
 kalman_filtersp2 = []
@@ -189,7 +186,7 @@ while (1):
         ok, frame = cap.read()
     if ok:
         # Resize the dimension of the frame
-        smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
+        smallFrame = cv.resize(frame, (0, 0), fx=0.25, fy=0.25)
         cv.putText(smallFrame, trackerType + " Tracker", (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
         ok, boxes = multiTracker.update(smallFrame)
         # Update position of the bounding box
@@ -320,7 +317,7 @@ for bbox in bboxes:
     iter_frame = 1
     for i in range(0, len(px) - 1):
         #compute here the accelleration for space sample
-        shift = shift + math.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2)
+        shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2) #steve updated from math.sqrt to np.sqrt
         if i == 50*iter_frame:
             if iter_frame == 1:
                 shift_prec = shift
