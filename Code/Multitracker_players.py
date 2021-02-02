@@ -6,6 +6,7 @@ import cv2 as cv
 import numpy as np
 import yaml
 import scipy as sp
+from scipy import signal
 from random import randint
 import webcolors
 #import imutils
@@ -18,7 +19,7 @@ import time
 
 trackerTypes = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
 
-def closest_colour(requested_colour):
+def closestColor(requested_colour):
     min_colours = {}
     for key, name in webcolors.CSS3_HEX_TO_NAMES.items():
         r_c, g_c, b_c = webcolors.hex_to_rgb(key)
@@ -28,13 +29,22 @@ def closest_colour(requested_colour):
         min_colours[(rd + gd + bd)] = name
     return min_colours[min(min_colours.keys())]
 
-def get_colour_name(requested_colour):
+def getColorName(requested_colour):
     try:
         closest_name = actual_name = webcolors.rgb_to_name(requested_colour)
     except ValueError:
-        closest_name = closest_colour(requested_colour)
+        closest_name = closestColor(requested_colour)
         actual_name = None
     return actual_name, closest_name
+
+def pickNewColor(color_names_used):
+    while(1):
+        rgb = (randint(0, 255), randint(0, 255), randint(0, 255))
+        actual_name, closest_name = getColorName(rgb)
+        rgb = webcolors.name_to_rgb(closest_name)
+        if closest_name not in color_names_used:
+            break
+    return (rgb[0], rgb[1], rgb[2])
 
 def createTrackerByName(trackerType):
     # Create a tracker based on tracker name
@@ -114,22 +124,23 @@ kalman_filtersp1 = []
 kalman_filtersp2 = []
 bboxes = []
 colors = []
+color_names_used = set()
 histo = []
 show_homography = False
+
 
 while True:
     # draw bounding boxes over objects
     # selectROI's default behaviour is to draw box starting from the center
     # when fromCenter is set to false, you can draw box starting from top left corner
     bbox = cv.selectROI("ROI", smallFrame, False)
+    if bbox == (0,0,0,0): break #means no box selected
     crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
     hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
     histo.append(hist_1)
     bboxes.append(bbox)
-    rgb = (randint(0, 255), randint(0, 255), randint(0, 255))
-    actual_name, closest_name = get_colour_name(rgb)
-    rgb = webcolors.name_to_rgb(closest_name)
-    colors.append((rgb[0], rgb[1], rgb[2]))
+    colors.append(pickNewColor(color_names_used))
+
     print("Press q to quit selecting boxes and start tracking, or any other key to select next object")
     k = cv.waitKey(0) & 0xFF
     if (k == 113):  # q is pressed
@@ -217,8 +228,8 @@ while (1):
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = return_intersection(histo[i], hist_2)
                 if intersection < tau:
-                    print(intersection)
-                    print("RE-INITIALIZE TRACKER CSRT n°%d" % i)
+                    print("RE-INITIALIZE TRACKER CSRT n° %d" % i)
+                    colors[i] = pickNewColor(color_names_used)
                     multiTracker = cv.legacy.MultiTracker_create()
                     for n, nb in enumerate(boxes):
                         boxi = (int(nb[0]), int(nb[1]), int(nb[2]), int(nb[3]))
@@ -229,6 +240,7 @@ while (1):
 
                     histo[i] = hist_2
 
+                cv.putText(smallFrame, str(round(intersection,2)), (punto1[0], punto1[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 cv.rectangle(smallFrame, punto1, punto2, colors[i], 2, 1)
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
@@ -309,7 +321,7 @@ for bbox in bboxes:
     py = position_y[indice]
     shift = 0
     rgb = colors[indice]
-    actual_name, closest_name = get_colour_name(rgb)
+    actual_name, closest_name = getColorName(rgb)
     f.write("\n\n")
     f.write("TRACKER COLOR %s\r\n" % closest_name)
     f.write("ACCELERATION:\r\n")
