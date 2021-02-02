@@ -36,4 +36,4 @@ In the folder Code you can find the following scripts:
 - Open the Anaconda shell
 - Run *conda env create -f environment.yml*
 - Run *conda activate name_of_the_environment*
-- Open your favorite editor using the just-created environment (for example, fire *conda .* in the same Anaconda shell)
+- Open your favorite editor using the just-created environment (for example, fire *code .* in the same Anaconda shell)
