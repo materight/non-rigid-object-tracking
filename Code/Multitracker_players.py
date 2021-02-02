@@ -115,6 +115,7 @@ kalman_filtersp2 = []
 bboxes = []
 colors = []
 histo = []
+show_homography = False
 
 while True:
     # draw bounding boxes over objects
@@ -129,8 +130,7 @@ while True:
     actual_name, closest_name = get_colour_name(rgb)
     rgb = webcolors.name_to_rgb(closest_name)
     colors.append((rgb[0], rgb[1], rgb[2]))
-    print("Press q to quit selecting boxes and start tracking")
-    print("Press any other key to select next object")
+    print("Press q to quit selecting boxes and start tracking, or any other key to select next object")
     k = cv.waitKey(0) & 0xFF
     if (k == 113):  # q is pressed
         break
@@ -174,9 +174,8 @@ for bbox in bboxes:
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(output3, smallFrame)
 cv.putText(smallFrame,"Selected Bounding Boxes. PRESS SPACE TO CONTINUE...", (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-cv.imshow("bounding box", smallFrame)
+cv.imshow("Tracking", smallFrame)
 cv.waitKey(0)
-cv.destroyWindow("bounding box")
 
 indice = 1
 start = time.time()
@@ -234,15 +233,14 @@ while (1):
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-                cv.imshow("Tracking-Homography", img)
+                if show_homography: cv.imshow("Tracking-Homography", img)
                 cv.imshow("Tracking", smallFrame)
         out.write(smallFrame)  # Save video frame by frame
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
-    else:
-        # Tracking failure
+    else: # Tracking failure
         cv.putText(smallFrame, "Tracking failure detected", (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 cv.waitKey(0)
@@ -270,9 +268,10 @@ for bbox in bboxes:
     i = i + 1
 
 # Show the result
-cv.imshow("Smoothing", img)
-cv.waitKey(0)
-cv.destroyWindow("Smoothing")
+if show_homography:
+    cv.imshow("Smoothing", img)
+    cv.waitKey(0)
+    cv.destroyWindow("Smoothing")
 
 # Evaluation of the shift, acceleration and the average speed of the players in real world coordinates
 # Step 1: Compute the position of the smoothed vector of position in real world coordinates
