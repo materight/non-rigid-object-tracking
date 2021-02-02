@@ -31,3 +31,9 @@ In the folder Code you can find the following scripts:
     - It tracks multiple players using  the CSRT Algorithm and represents his trajectory on the basketball diagram.
     - Moreover, it gives an estimation of the trajectory length, the average speed and acceleration.
     - The outputs are saved in the Output/Tracking folder.
+
+## Importing the conda env
+- Open the Anaconda shell
+- Run *conda env create -f environment.yml*
+- Run *conda activate name_of_the_environment*
+- Open your favorite editor using the just-created environment (for example, fire *conda .* in the same Anaconda shell)
