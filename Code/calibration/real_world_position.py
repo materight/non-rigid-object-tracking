@@ -42,7 +42,7 @@ if not cap.isOpened():
 img = cv2.imread('../Sources/Map/basket_field.jpg')
 
 # Read homography matrix
-with open('homography_19points.yaml') as f:
+with open('configs/homography_19points.yaml') as f:
     loadeddict = yaml.load(f)
 
 hloaded = loadeddict.get('homography')

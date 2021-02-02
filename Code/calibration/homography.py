@@ -103,5 +103,5 @@ elif len(x_sequence_video)>=4:
 
     # Save the homography matrix on a file
     data = {'homography': np.asarray(h).tolist()}
-    with open("homography_11points.yaml", "w") as f:
+    with open("configs/homography_11points.yaml", "w") as f:
         yaml.dump(data, f)

@@ -32,21 +32,21 @@ img_19points=copy.copy(img)
 
 # Read homography matrix
 # 1) Homography 4 points
-with open('homography_4points.yaml') as f:
+with open('configs/homography_4points.yaml') as f:
     loadeddict = yaml.load(f)
 
 hloaded = loadeddict.get('homography')
 h_4points=np.asarray(hloaded)
 
 # 2) Homography 11 points
-with open('homography_11points.yaml') as f:
+with open('configs/homography_11points.yaml') as f:
     loadeddict = yaml.load(f)
 
 hloaded = loadeddict.get('homography')
 h_11points=np.asarray(hloaded)
 
 # 3) Homography 19 points
-with open('homography_19points.yaml') as f:
+with open('configs/homography_19points.yaml') as f:
     loadeddict = yaml.load(f)
 
 hloaded = loadeddict.get('homography')

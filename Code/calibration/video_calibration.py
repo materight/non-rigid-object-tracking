@@ -7,7 +7,7 @@ import cv2
 import yaml
 
 # Load the camera matrix from file
-with open('calibration.yaml') as f:
+with open('configs/calibration.yaml') as f:
     loadeddict = yaml.load(f)
 
 mtxloaded = loadeddict.get('camera_matrix')

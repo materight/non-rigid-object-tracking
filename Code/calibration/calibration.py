@@ -77,5 +77,5 @@ for index in range(1,18):
 # Save camera matrix on a file
 data = {'camera_matrix': np.asarray(mtx).tolist(), 'dist_coeff': np.asarray(dist).tolist()}
 
-with open("calibration.yaml", "w") as f:
+with open("configs/calibration.yaml", "w") as f:
     yaml.dump(data, f)
