@@ -41,19 +41,19 @@ with open('configs/homography_19points.yaml') as f:
 hloaded = loadeddict.get('homography')
 h = np.asarray(hloaded)
 # Read the image
-img = cv.imread('../Sources/Map/basket_field.jpg')
+img = cv.imread('sources/Map/basket_field.jpg')
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
-out_players = '../Output/Tracking/tracked_players.avi'
-out_homography = '../Output/Tracking/tracked_homography.avi'
-out_bboxes = "../Output/Tracking/bounding_box.png"
-out_players_data = "../Output/Tracking/data_players.txt"
-out_tracking_results = "../Output/Tracking/results.png"
+out_players = 'output/Tracking/tracked_players.avi'
+out_homography = 'output/Tracking/tracked_homography.avi'
+out_bboxes = "output/Tracking/bounding_box.png"
+out_players_data = "output/Tracking/data_players.txt"
+out_tracking_results = "output/Tracking/results.png"
 
 tau = 0.6
 out = cv.VideoWriter(out_players, fourcc, 25.0, (1344, 756))
 points = cv.VideoWriter(out_homography, fourcc, 25.0, (1081, 612))
-cap = cv.VideoCapture('../Output/Video/clip3.mp4')
+cap = cv.VideoCapture('output/Video/clip3.mp4')
 fps = cap.get(cv.CAP_PROP_FPS)
 cap.isOpened()
 ok, frame = cap.read()
