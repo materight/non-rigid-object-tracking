@@ -1,7 +1,7 @@
-"""
+'''
     This script compute the trajectory of a multiple players and reproduce the trajectory on the basketball diagram.
     Moreover, it evalueates the length of the trajectory, the acceleration and the average speed of the player in a given timestep.
-"""
+'''
 import cv2 as cv
 import numpy as np
 import yaml
@@ -46,9 +46,9 @@ img = cv.imread('sources/Map/basket_field.jpg')
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
 out_players = 'output/Tracking/tracked_players.avi'
 out_homography = 'output/Tracking/tracked_homography.avi'
-out_bboxes = "output/Tracking/bounding_box.png"
-out_players_data = "output/Tracking/data_players.txt"
-out_tracking_results = "output/Tracking/results.png"
+out_bboxes = 'output/Tracking/bounding_box.png'
+out_players_data = 'output/Tracking/data_players.txt'
+out_tracking_results = 'output/Tracking/results.png'
 
 tau = 0.6
 out = cv.VideoWriter(out_players, fourcc, 25.0, (1344, 756))
@@ -69,27 +69,27 @@ while True:
     # draw bounding boxes over objects
     # selectROI's default behaviour is to draw box starting from the center
     # when fromCenter is set to false, you can draw box starting from top left corner
-    bbox = cv.selectROI("ROI", smallFrame, False)
+    bbox = cv.selectROI('ROI', smallFrame, False)
     if bbox == (0, 0, 0, 0): break #means no box selected
     crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
     hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
     histo.append(hist_1)
     bboxes.append(bbox)
     colors.append(colorutils.pickNewColor(color_names_used))
-    print("Press q to quit selecting boxes and start tracking, or any other key to select next object")
+    print('Press q to quit selecting boxes and start tracking, or any other key to select next object')
     if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
         break
 
 
-cv.destroyWindow("ROI")
-print('Selected bounding boxes {}'.format(bboxes))
+cv.destroyWindow('ROI')
+print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
 # List for saving points of tracking in the basketball diagram (homography)
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
 #ok, frame = cap.read()
 #smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
-trackerType = "CSRT"
+trackerType = 'CSRT'
 for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(trackerType), smallFrame, bbox)
     x_sequences.append([])
@@ -115,8 +115,8 @@ for i, bbox in enumerate(bboxes):
 
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(out_bboxes, smallFrame)
-cv.putText(smallFrame,"Selected Bounding Boxes. PRESS SPACE TO CONTINUE...", (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-cv.imshow("Tracking", smallFrame)
+cv.putText(smallFrame,'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
 index = 1
@@ -128,7 +128,7 @@ while (1):
     if ok:
         # Resize the dimension of the frame
         smallFrame = cv.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        cv.putText(smallFrame, trackerType + " Tracker", (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        cv.putText(smallFrame, trackerType + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
         ok, boxes = multiTracker.update(smallFrame)
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -159,7 +159,7 @@ while (1):
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
                 if intersection < tau:
-                    print("RE-INITIALIZE TRACKER CSRT n° %d" % i)
+                    print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
                     colors[i] = colorutils.pickNewColor(color_names_used)
                     multiTracker = cv.legacy.MultiTracker_create()
                     for n, nb in enumerate(boxes):
@@ -176,15 +176,15 @@ while (1):
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-                if show_homography: cv.imshow("Tracking-Homography", img)
-                cv.imshow("Tracking", smallFrame)
+                if show_homography: cv.imshow('Tracking-Homography', img)
+                cv.imshow('Tracking', smallFrame)
         out.write(smallFrame)  # Save video frame by frame
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
     else: # Tracking failure
-        cv.putText(smallFrame, "Tracking failure detected", (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
+        cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 cv.waitKey(0)
 cv.destroyAllWindows()
@@ -210,9 +210,9 @@ for i, bbox in enumerate(bboxes):
 
 # Show the result
 if show_homography:
-    cv.imshow("Smoothing", img)
+    cv.imshow('Smoothing', img)
     cv.waitKey(0)
-    cv.destroyWindow("Smoothing")
+    cv.destroyWindow('Smoothing')
 
 # Evaluation of the shift, acceleration and the average speed of the players in real world coordinates
 # Step 1: Compute the position of the smoothed vector of position in real world coordinates
@@ -240,17 +240,17 @@ for bbox in bboxes:
 shift = 0
 index = 0
 px, py = [], []
-f = open(out_players_data,"w+")
-f.write("TIME CONSUMED FOR TRACKING: %f\r\n" % (end - start))
+f = open(out_players_data,'w+')
+f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
 for bbox in bboxes:
     px = position_x[index]
     py = position_y[index]
     shift = 0
     rgb = colors[index]
     actual_name, closest_name = colorutils.getColorName(rgb)
-    f.write("\n\n")
-    f.write("TRACKER COLOR %s\r\n" % closest_name)
-    f.write("ACCELERATION:\r\n")
+    f.write('\n\n')
+    f.write('TRACKER COLOR %s\r\n' % closest_name)
+    f.write('ACCELERATION:\r\n')
     iter_frame = 1
     shift_prec, average_acceleration1 = None, None
     for i in range(0, len(px) - 1):
@@ -261,30 +261,30 @@ for bbox in bboxes:
                 shift_prec = shift
                 speed1 = shift_prec / 2
                 average_acceleration1 = speed1 / 2
-                f.write("Detection done in the first 2 seconds\r\n")
-                f.write("route space:%f, time step 2 sec\r\n" % shift_prec)
-                f.write("acceleration: %f\r\n" % average_acceleration1)
+                f.write('Detection done in the first 2 seconds\r\n')
+                f.write('route space:%f, time step 2 sec\r\n' % shift_prec)
+                f.write('acceleration: %f\r\n' % average_acceleration1)
             else:
                 t1 = (((2 * fps) * iter_frame) - (2 * fps)) / fps
                 t2 = ((2 * fps) * iter_frame) / fps
                 speed2 = (shift - shift_prec) / 2
                 average_acceleration2 = speed2 / 2 - average_acceleration1
                 average_acceleration1 = average_acceleration2
-                f.write("Detection done in the time sample %d - %d sec\r\n" % (t2, t1))
-                f.write("route space:%f, time step 2 sec\r\n" % (shift - shift_prec))
-                f.write("acceleration: %f\r\n" % average_acceleration2)
+                f.write('Detection done in the time sample %d - %d sec\r\n' % (t2, t1))
+                f.write('route space:%f, time step 2 sec\r\n' % (shift - shift_prec))
+                f.write('acceleration: %f\r\n' % average_acceleration2)
                 shift_prec = shift
 
             iter_frame += 1
-            f.write("\n")
+            f.write('\n')
 # Step 3
     # Print of the results
     # Evaluation of the average speed: speed=space/time
     average_speed = shift / (len(px)/fps)
-    f.write(f"trajectory length {shift:.2f}[m]\r\n\n")
-    f.write(f"average speed {average_speed:.2f}[m/s]\r\n\n")
+    f.write(f'trajectory length {shift:.2f}[m]\r\n\n')
+    f.write(f'average speed {average_speed:.2f}[m/s]\r\n\n')
     cv.imwrite(out_tracking_results, img)
-    cv.imshow("Result", img)
+    cv.imshow('Result', img)
     index += 1
 cap.release()
 cv.destroyAllWindows()
