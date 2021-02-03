@@ -148,7 +148,7 @@ index = 1
 start = time.time()
 # Loop for tracking
 while (1):
-    if index <= 1 or index >= 50:
+    if index > 50:
         ok, frame = cap.read()
     if ok:
         # Resize the dimension of the frame
@@ -211,8 +211,9 @@ while (1):
                 if SHOW_HOMOGRAPHY:
                     cv.imshow('Tracking-Homography', img)
 
-        out.write(smallFrame)  # Save video frame by frame
-        out_mask.write(maskedFrame)  # Save masked video
+        if index > 50:
+            out.write(smallFrame)  # Save video frame by frame
+            out_mask.write(maskedFrame)  # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
@@ -224,8 +225,8 @@ while (1):
 cv.waitKey(0)
 cv.destroyAllWindows()
 end = time.time()
+print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
-print(end - start)
 # Post-processing
 # 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
 x_sequence_image = sp.signal.medfilt(x_sequence_image, 25)  # Window width of the filter MUST be ODD
