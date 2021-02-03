@@ -89,8 +89,9 @@ if MANUAL_BOX_SELECTION:
         # selectROI's default behaviour is to draw box starting from the center
         # when fromCenter is set to false, you can draw box starting from top left corner
         bbox = cv.selectROI('ROI', smallFrame, False)
-        if bbox == (0, 0, 0, 0):
-            break  #no box selected
+        if bbox == (0, 0, 0, 0): #no box selected
+            cv.destroyWindow('ROI')
+            break  
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
@@ -98,6 +99,7 @@ if MANUAL_BOX_SELECTION:
         colors.append(colorutils.pickNewColor(color_names_used))
         print('Press q to quit selecting boxes and start tracking, or any other key to select next object')
         if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
+            cv.destroyWindow('ROI')
             break
 else:
     for bbox in  [(722, 264, 21, 47) , (262, 270, 16, 33)]: # (205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)
@@ -107,8 +109,6 @@ else:
         bboxes.append(bbox)
         colors.append(colorutils.pickNewColor(color_names_used)) 
 
-
-cv.destroyWindow('ROI')
 print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
 # List for saving points of tracking in the basketball diagram (homography)
@@ -120,12 +120,12 @@ for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
     y_sequences.append([])
-    kalman_filters.append(KalmanFilter())
+    kalman_filters.append(KalmanFilter()); 
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
-    cv.circle(smallFrame, (tracking_point[0], tracking_point[1]), 4, (255, 200, 0), -1)
+    cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
     cv.rectangle(smallFrame, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), (255, 0, 0), 2)
     # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
     vector = np.dot(h, np.transpose([tracking_point[0], tracking_point[1], 1]))
@@ -135,7 +135,7 @@ for i, bbox in enumerate(bboxes):
     tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
     x_sequences[i].append(tracking_point_new[0])
     y_sequences[i].append(tracking_point_new[1])
-    cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
+    cv.circle(img, tracking_point_new, 4, colors[i], -1)
 
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
@@ -143,16 +143,17 @@ cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (2
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
-index = 1
 start = time.time()
+index = 1
 while (1):
     if index > 50:
         ok, frame = cap.read()
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         maskedFrame = np.zeros(smallFrame.shape)
-        cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        
         ok, boxes = multiTracker.update(smallFrame)
+
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
             p1 = (int(newbox[0]), int(newbox[1]))
@@ -194,13 +195,17 @@ while (1):
 
                     histo[i] = hist_2
 
+                cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1[0], punto1[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 cv.rectangle(smallFrame, punto1, punto2, colors[i], 2, 1)
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
+
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
+                
                 # Compute masked frame
                 maskedFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])] = [255, 255, 255]
+                
                 # Show results
                 cv.imshow('Tracking', smallFrame)
                 if SHOW_MASKS:
@@ -214,7 +219,6 @@ while (1):
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
-
     else:  
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
