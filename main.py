@@ -13,33 +13,54 @@ import time
 import colorutils
 from kalman_filter import KalmanFilter
 
+
 def createTracker(trackerType):
     trackerTypes = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
     # Create a tracker based on tracker name
-    if trackerType == trackerTypes[0]: tracker = cv.legacy.TrackerBoosting_create()
-    elif trackerType == trackerTypes[1]: tracker = cv.legacy.TrackerMIL_create()
-    elif trackerType == trackerTypes[2]: tracker = cv.legacy.TrackerKCF_create()
-    elif trackerType == trackerTypes[3]: tracker = cv.legacy.TrackerTLD_create()
-    elif trackerType == trackerTypes[4]: tracker = cv.legacy.TrackerMedianFlow_create()
-    elif trackerType == trackerTypes[5]: tracker = cv.legacy.TrackerGOTURN_create()
-    elif trackerType == trackerTypes[6]: tracker = cv.legacy.TrackerMOSSE_create()
-    elif trackerType == trackerTypes[7]: tracker = cv.legacy.TrackerCSRT_create()
+    if trackerType == trackerTypes[0]:
+        tracker = cv.legacy.TrackerBoosting_create()
+    elif trackerType == trackerTypes[1]:
+        tracker = cv.legacy.TrackerMIL_create()
+    elif trackerType == trackerTypes[2]:
+        tracker = cv.legacy.TrackerKCF_create()
+    elif trackerType == trackerTypes[3]:
+        tracker = cv.legacy.TrackerTLD_create()
+    elif trackerType == trackerTypes[4]:
+        tracker = cv.legacy.TrackerMedianFlow_create()
+    elif trackerType == trackerTypes[5]:
+        tracker = cv.legacy.TrackerGOTURN_create()
+    elif trackerType == trackerTypes[6]:
+        tracker = cv.legacy.TrackerMOSSE_create()
+    elif trackerType == trackerTypes[7]:
+        tracker = cv.legacy.TrackerCSRT_create()
     else:
         tracker = None
         print(f'Incorrect tracker name, available trackers are: {trackerTypes}')
     return tracker
+
 
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
     intersection = np.true_divide(np.sum(minima), np.sum(hist_2))
     return intersection
 
+
+TRACKER = 'CSRT'
+TAU = 0.6
+RESIZE_FACTOR = 0.25
+
+# Read congigurations
+with open('config.yaml') as f:
+    loadeddict = yaml.full_load(f)
+    TRACKER = loadeddict.get('tracker')
+    TAU = loadeddict.get('tau')
+    RESIZE_FACTOR = loadeddict.get('resize_factor')
+
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
     loadeddict = yaml.full_load(f)
 
-hloaded = loadeddict.get('homography')
-h = np.asarray(hloaded)
+h = np.array(loadeddict.get('homography'))
 # Read the image
 img = cv.imread('sources/Map/basket_field.jpg')
 # Set output video
@@ -50,14 +71,13 @@ out_bboxes = 'output/Tracking/bounding_box.png'
 out_players_data = 'output/Tracking/data_players.txt'
 out_tracking_results = 'output/Tracking/results.png'
 
-tau = 0.6
 out = cv.VideoWriter(out_players, fourcc, 25.0, (1344, 756))
 points = cv.VideoWriter(out_homography, fourcc, 25.0, (1081, 612))
 cap = cv.VideoCapture('output/Video/clip3.mp4')
 fps = cap.get(cv.CAP_PROP_FPS)
 cap.isOpened()
 ok, frame = cap.read()
-smallFrame = cv.resize(frame, (0, 0), fx=0.25, fy=0.25)
+smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
 bboxes = []
 colors = []
@@ -70,7 +90,8 @@ while True:
     # selectROI's default behaviour is to draw box starting from the center
     # when fromCenter is set to false, you can draw box starting from top left corner
     bbox = cv.selectROI('ROI', smallFrame, False)
-    if bbox == (0, 0, 0, 0): break #means no box selected
+    if bbox == (0, 0, 0, 0):
+        break  # means no box selected
     crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
     hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
     histo.append(hist_1)
@@ -89,15 +110,14 @@ x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
 #ok, frame = cap.read()
 #smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
-trackerType = 'CSRT'
 for i, bbox in enumerate(bboxes):
-    multiTracker.add(createTracker(trackerType), smallFrame, bbox)
+    multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
     y_sequences.append([])
     kalman_filters.append(KalmanFilter())
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
-  
+
 
 for i, bbox in enumerate(bboxes):
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
@@ -115,7 +135,7 @@ for i, bbox in enumerate(bboxes):
 
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(out_bboxes, smallFrame)
-cv.putText(smallFrame,'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
@@ -127,8 +147,8 @@ while (1):
         ok, frame = cap.read()
     if ok:
         # Resize the dimension of the frame
-        smallFrame = cv.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        cv.putText(smallFrame, trackerType + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+        cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
         ok, boxes = multiTracker.update(smallFrame)
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -158,16 +178,16 @@ while (1):
                 crop_img = smallFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])]
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
-                if intersection < tau:
+                if intersection < TAU:
                     print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
                     colors[i] = colorutils.pickNewColor(color_names_used)
                     multiTracker = cv.legacy.MultiTracker_create()
                     for n, nb in enumerate(boxes):
                         boxi = (int(nb[0]), int(nb[1]), int(nb[2]), int(nb[3]))
                         if n == i:
-                            multiTracker.add(createTracker(trackerType), smallFrame, bbox_new)
+                            multiTracker.add(createTracker(TRACKER), smallFrame, bbox_new)
                         else:
-                            multiTracker.add(createTracker(trackerType), smallFrame, boxi)
+                            multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
 
                     histo[i] = hist_2
 
@@ -176,14 +196,15 @@ while (1):
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-                if show_homography: cv.imshow('Tracking-Homography', img)
+                if show_homography:
+                    cv.imshow('Tracking-Homography', img)
                 cv.imshow('Tracking', smallFrame)
         out.write(smallFrame)  # Save video frame by frame
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
-    else: # Tracking failure
+    else:  # Tracking failure
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 cv.waitKey(0)
@@ -240,7 +261,7 @@ for bbox in bboxes:
 shift = 0
 index = 0
 px, py = [], []
-f = open(out_players_data,'w+')
+f = open(out_players_data, 'w+')
 f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
 for bbox in bboxes:
     px = position_x[index]
@@ -254,8 +275,8 @@ for bbox in bboxes:
     iter_frame = 1
     shift_prec, average_acceleration1 = None, None
     for i in range(0, len(px) - 1):
-        #compute here the accelleration for space sample
-        shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2) #steve updated from math.sqrt to np.sqrt
+        # compute here the accelleration for space sample
+        shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2)  # steve updated from math.sqrt to np.sqrt
         if i == 50*iter_frame:
             if iter_frame == 1:
                 shift_prec = shift
