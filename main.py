@@ -45,12 +45,9 @@ def returnIntersection(hist_1, hist_2):
     return intersection
 
 
-TRACKER = 'CSRT'
-TAU = 0.6
-RESIZE_FACTOR = 0.25
-
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
+MANUAL_BOX_SELECTION = True
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -90,21 +87,29 @@ out = cv.VideoWriter(out_players, fourcc, 25.0, smallFrame.shape[1::-1])
 out_mask = cv.VideoWriter(out_players_mask, fourcc, 25.0, smallFrame.shape[1::-1])
 points = cv.VideoWriter(out_homography, fourcc, 25.0, img.shape[1::-1])
 
-while True:
-    # draw bounding boxes over objects
-    # selectROI's default behaviour is to draw box starting from the center
-    # when fromCenter is set to false, you can draw box starting from top left corner
-    bbox = cv.selectROI('ROI', smallFrame, False)
-    if bbox == (0, 0, 0, 0):
-        break  # means no box selected
-    crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-    hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-    histo.append(hist_1)
-    bboxes.append(bbox)
-    colors.append(colorutils.pickNewColor(color_names_used))
-    print('Press q to quit selecting boxes and start tracking, or any other key to select next object')
-    if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
-        break
+if MANUAL_BOX_SELECTION:
+    while True:
+        # draw bounding boxes over objects
+        # selectROI's default behaviour is to draw box starting from the center
+        # when fromCenter is set to false, you can draw box starting from top left corner
+        bbox = cv.selectROI('ROI', smallFrame, False)
+        if bbox == (0, 0, 0, 0):
+            break  #no box selected
+        crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+        histo.append(hist_1)
+        bboxes.append(bbox)
+        colors.append(colorutils.pickNewColor(color_names_used))
+        print('Press q to quit selecting boxes and start tracking, or any other key to select next object')
+        if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
+            break
+else:
+    for bbox in  [(722, 264, 21, 47) , (262, 270, 16, 33)]: # (205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)
+        crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+        histo.append(hist_1)
+        bboxes.append(bbox)
+        colors.append(colorutils.pickNewColor(color_names_used)) 
 
 
 cv.destroyWindow('ROI')
@@ -123,8 +128,6 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-
-for i, bbox in enumerate(bboxes):
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, (tracking_point[0], tracking_point[1]), 4, (255, 200, 0), -1)
     cv.rectangle(smallFrame, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), (255, 0, 0), 2)
@@ -146,12 +149,10 @@ cv.waitKey(0)
 
 index = 1
 start = time.time()
-# Loop for tracking
 while (1):
     if index > 50:
         ok, frame = cap.read()
     if ok:
-        # Resize the dimension of the frame
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         maskedFrame = np.zeros(smallFrame.shape)
         cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
@@ -167,7 +168,6 @@ while (1):
             p2 = kalman_filtersp2[i].estimate(p2[0], p2[1])
             # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
             vector = np.dot(h, np.transpose([predictedCoords[0][0], predictedCoords[1][0], 1]))
-            # Evaluation of the vector
             if index <= 50:
                 index += 1
             else:
@@ -181,6 +181,7 @@ while (1):
                 punto1 = (int(p1[0]), int(p1[1]))
                 punto2 = (int(p2[0]), int(p2[1]))
                 bbox_new = (punto1[0], punto1[1], punto2[0] - punto1[0], punto2[1] - punto1[1])
+
                 crop_img = smallFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])]
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
@@ -218,7 +219,7 @@ while (1):
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
-    else:  # Tracking failure
+    else:  
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
