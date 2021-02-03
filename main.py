@@ -16,7 +16,6 @@ from kalman_filter import KalmanFilter
 
 def createTracker(trackerType):
     trackerTypes = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
-    # Create a tracker based on tracker name
     if trackerType == trackerTypes[0]:
         tracker = cv.legacy.TrackerBoosting_create()
     elif trackerType == trackerTypes[1]:
@@ -58,34 +57,31 @@ with open('config.yaml') as f:
 
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
-    loadeddict = yaml.full_load(f)
+    dict_homo = yaml.full_load(f)
+    h = np.array(dict_homo.get('homography'))
 
-h = np.array(loadeddict.get('homography'))
-# Read the image
-img = cv.imread('sources/Map/basket_field.jpg')
+img = cv.imread(loadeddict.get('input_image_homography'))
+
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
-out_players = 'output/Tracking/tracked_players.avi'
-out_players_mask = 'output/Tracking/tracked_players_mask.avi'
-out_homography = 'output/Tracking/tracked_homography.avi'
-out_bboxes = 'output/Tracking/bounding_box.png'
-out_players_data = 'output/Tracking/data_players.txt'
-out_tracking_results = 'output/Tracking/results.png'
 
-cap = cv.VideoCapture('output/Video/clip3.mp4')
+cap = cv.VideoCapture(loadeddict.get('input_video'))
 fps = cap.get(cv.CAP_PROP_FPS)
-cap.isOpened()
+
+if not cap.isOpened():
+    exit("Input video not opened correctly")
+
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
+color_names_used = set()
 bboxes = []
 colors = []
-color_names_used = set()
 histo = []
 
-out = cv.VideoWriter(out_players, fourcc, 25.0, smallFrame.shape[1::-1])
-out_mask = cv.VideoWriter(out_players_mask, fourcc, 25.0, smallFrame.shape[1::-1])
-points = cv.VideoWriter(out_homography, fourcc, 25.0, img.shape[1::-1])
+out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, 25.0, smallFrame.shape[1::-1])
+out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, 25.0, smallFrame.shape[1::-1])
+points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shape[1::-1])
 
 if MANUAL_BOX_SELECTION:
     while True:
@@ -142,7 +138,7 @@ for i, bbox in enumerate(bboxes):
     cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
 
 # Save and visualize the chosen bounding box and its point used for homography
-cv.imwrite(out_bboxes, smallFrame)
+cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
 cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
@@ -277,7 +273,7 @@ for bbox in bboxes:
 shift = 0
 index = 0
 px, py = [], []
-f = open(out_players_data, 'w+')
+f = open(loadeddict.get('out_players_data'), 'w+')
 f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
 for bbox in bboxes:
     px = position_x[index]
@@ -320,7 +316,7 @@ for bbox in bboxes:
     average_speed = shift / (len(px)/fps)
     f.write(f'trajectory length {shift:.2f}[m]\r\n\n')
     f.write(f'average speed {average_speed:.2f}[m/s]\r\n\n')
-    cv.imwrite(out_tracking_results, img)
+    cv.imwrite(loadeddict.get('out_tracking_results'), img)
     cv.imshow('Result', img)
     index += 1
 cap.release()

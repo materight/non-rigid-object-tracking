@@ -1,3 +1,13 @@
 tracker: CSRT
 tau: 0.3
 resize_factor: 0.35
+
+out_players: output/Tracking/tracked_players.avi
+out_players_mask: output/Tracking/tracked_players_mask.avi
+out_homography: output/Tracking/tracked_homography.avi
+out_bboxes: output/Tracking/bounding_box.png
+out_players_data: output/Tracking/data_players.txt
+out_tracking_results: output/Tracking/results.png
+
+input_video: output/Video/clip3.mp4
+input_image_homography: sources/Map/basket_field.jpg
