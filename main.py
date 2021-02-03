@@ -46,7 +46,7 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_BOX_SELECTION = True
+MANUAL_BOX_SELECTION = False
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -64,7 +64,6 @@ img = cv.imread(loadeddict.get('input_image_homography'))
 
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
-
 cap = cv.VideoCapture(loadeddict.get('input_video'))
 fps = cap.get(cv.CAP_PROP_FPS)
 
@@ -103,6 +102,7 @@ if MANUAL_BOX_SELECTION:
             break
 else:
     """
+    Example bounding boxes for clip3.mp4
     For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
     For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
     """
