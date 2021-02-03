@@ -102,7 +102,11 @@ if MANUAL_BOX_SELECTION:
             cv.destroyWindow('ROI')
             break
 else:
-    for bbox in  [(722, 264, 21, 47) , (262, 270, 16, 33)]: # (205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)
+    """
+    For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
+    For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
+    """
+    for bbox in  [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]:
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
@@ -118,9 +122,9 @@ x_sequences, y_sequences = [], []
 #smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
 for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
-    x_sequences.append([])
-    y_sequences.append([])
-    kalman_filters.append(KalmanFilter()); 
+    x_sequences.append([]); y_sequences.append([])
+
+    kalman_filters.append(KalmanFilter())
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
@@ -156,13 +160,14 @@ while (1):
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
-            p1 = (int(newbox[0]), int(newbox[1]))
-            p2 = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
+            p1_t = (int(newbox[0]), int(newbox[1]))
+            p2_t = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
+
             # Computation of the new position of the tracking point
             tracking_point = (int(newbox[0] + newbox[2] / 2), int(newbox[1] + newbox[3]))
             predictedCoords = kalman_filters[i].estimate(tracking_point[0], tracking_point[1])
-            p1 = kalman_filtersp1[i].estimate(p1[0], p1[1])
-            p2 = kalman_filtersp2[i].estimate(p2[0], p2[1])
+            p1_k = kalman_filtersp1[i].estimate(p1_t[0], p1_t[1])
+            p2_k = kalman_filtersp2[i].estimate(p2_t[0], p2_t[1])
             # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
             vector = np.dot(h, np.transpose([predictedCoords[0][0], predictedCoords[1][0], 1]))
             if index <= 50:
@@ -172,14 +177,16 @@ while (1):
                 w = vector[2]
                 tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
                 # Add new position to list of points for the homographed space
-                x_sequences[i].append(tracking_point_new[0])
-                y_sequences[i].append(tracking_point_new[1])
+                x_sequences[i].append(tracking_point_new[0]); y_sequences[i].append(tracking_point_new[1])
                 # computation of the predicted bounding box
-                punto1 = (int(p1[0]), int(p1[1]))
-                punto2 = (int(p2[0]), int(p2[1]))
-                bbox_new = (punto1[0], punto1[1], punto2[0] - punto1[0], punto2[1] - punto1[1])
+                punto1_k = (int(p1_k[0]), int(p1_k[1]))
+                punto2_k = (int(p2_k[0]), int(p2_k[1]))
+                punto1_t = (int(p1_t[0]), int(p1_t[1]))
+                punto2_t = (int(p2_t[0]), int(p2_t[1]))
+                
+                bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
 
-                crop_img = smallFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])]
+                crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
                 if intersection < TAU:
@@ -187,24 +194,24 @@ while (1):
                     colors[i] = colorutils.pickNewColor(color_names_used)
                     multiTracker = cv.legacy.MultiTracker_create()
                     for n, nb in enumerate(boxes):
-                        boxi = (int(nb[0]), int(nb[1]), int(nb[2]), int(nb[3]))
+                        boxi = (nb[0], nb[1], nb[2], nb[3])
                         if n == i:
                             multiTracker.add(createTracker(TRACKER), smallFrame, bbox_new)
                         else:
                             multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
-
                     histo[i] = hist_2
 
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-                cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1[0], punto1[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                cv.rectangle(smallFrame, punto1, punto2, colors[i], 2, 1)
+                cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1_k[0], punto1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                cv.rectangle(smallFrame, punto1_k, punto2_k, colors[i], 2, 1)
+                cv.rectangle(smallFrame, punto1_t, punto2_t, colors[i], 1, 1) #display both boxes to check for diffs
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
 
-                cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
+                cv.circle(img, tracking_point_new, 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
                 
                 # Compute masked frame
-                maskedFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])] = [255, 255, 255]
+                maskedFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]] = [255, 255, 255]
                 
                 # Show results
                 cv.imshow('Tracking', smallFrame)
