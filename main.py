@@ -115,6 +115,7 @@ else:
 
 print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
+
 # List for saving points of tracking in the basketball diagram (homography)
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
@@ -235,7 +236,21 @@ cv.destroyAllWindows()
 end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
-# Post-processing
+
+
+
+
+
+#    _____          _   _____                             _             
+#   |  __ \        | | |  __ \                           (_)            
+#   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _ 
+#   |  ___/ _ \/ __| __|  ___/ '__/ _ \ / __/ _ \/ __/ __| | '_ \ / _` |
+#   | |  | (_) \__ \ |_| |   | | | (_) | (_|  __/\__ \__ \ | | | | (_| |
+#   |_|   \___/|___/\__|_|   |_|  \___/ \___\___||___/___/_|_| |_|\__, |
+#                                                                  __/ |
+#                                                                 |___/ 
+# (Montibeller project)
+
 # 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
 x_sequence_image = sp.signal.medfilt(x_sequence_image, 25)  # Window width of the filter MUST be ODD
 y_sequence_image = sp.signal.medfilt(y_sequence_image, 25)
