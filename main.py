@@ -49,6 +49,9 @@ TRACKER = 'CSRT'
 TAU = 0.6
 RESIZE_FACTOR = 0.25
 
+SHOW_MASKS = False
+SHOW_HOMOGRAPHY = False
+
 # Read congigurations
 with open('config.yaml') as f:
     loadeddict = yaml.full_load(f)
@@ -66,13 +69,12 @@ img = cv.imread('sources/Map/basket_field.jpg')
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
 out_players = 'output/Tracking/tracked_players.avi'
+out_players_mask = 'output/Tracking/tracked_players_mask.avi'
 out_homography = 'output/Tracking/tracked_homography.avi'
 out_bboxes = 'output/Tracking/bounding_box.png'
 out_players_data = 'output/Tracking/data_players.txt'
 out_tracking_results = 'output/Tracking/results.png'
 
-out = cv.VideoWriter(out_players, fourcc, 25.0, (1344, 756))
-points = cv.VideoWriter(out_homography, fourcc, 25.0, (1081, 612))
 cap = cv.VideoCapture('output/Video/clip3.mp4')
 fps = cap.get(cv.CAP_PROP_FPS)
 cap.isOpened()
@@ -83,7 +85,10 @@ bboxes = []
 colors = []
 color_names_used = set()
 histo = []
-show_homography = False
+
+out = cv.VideoWriter(out_players, fourcc, 25.0, smallFrame.shape[1::-1])
+out_mask = cv.VideoWriter(out_players_mask, fourcc, 25.0, smallFrame.shape[1::-1])
+points = cv.VideoWriter(out_homography, fourcc, 25.0, img.shape[1::-1])
 
 while True:
     # draw bounding boxes over objects
@@ -148,6 +153,7 @@ while (1):
     if ok:
         # Resize the dimension of the frame
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+        maskedFrame = np.zeros(smallFrame.shape)
         cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
         ok, boxes = multiTracker.update(smallFrame)
         # Update position of the bounding box
@@ -196,10 +202,17 @@ while (1):
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
                 cv.circle(img, (tracking_point_new[0], tracking_point_new[1]), 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-                if show_homography:
-                    cv.imshow('Tracking-Homography', img)
+                # Compute masked frame
+                maskedFrame[int(bbox_new[1]):int(bbox_new[1] + bbox_new[3]), int(bbox_new[0]):int(bbox_new[0] + bbox_new[2])] = [255, 255, 255]
+                # Show results
                 cv.imshow('Tracking', smallFrame)
+                if SHOW_MASKS:
+                    cv.imshow('Tracking-Masks', maskedFrame)
+                if SHOW_HOMOGRAPHY:
+                    cv.imshow('Tracking-Homography', img)
+
         out.write(smallFrame)  # Save video frame by frame
+        out_mask.write(maskedFrame)  # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
@@ -207,6 +220,7 @@ while (1):
     else:  # Tracking failure
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
+
 cv.waitKey(0)
 cv.destroyAllWindows()
 end = time.time()
@@ -230,7 +244,7 @@ for i, bbox in enumerate(bboxes):
     position_y.append([])
 
 # Show the result
-if show_homography:
+if SHOW_HOMOGRAPHY:
     cv.imshow('Smoothing', img)
     cv.waitKey(0)
     cv.destroyWindow('Smoothing')
