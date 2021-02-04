@@ -37,35 +37,36 @@ def createTracker(trackerType):
         print(f'Incorrect tracker name, available trackers are: {trackerTypes}')
     return tracker
 
+
 def drawPolyROI(event, x, y, flags, params):
     # :mouse callback function
     img2 = params["image"].copy()
- 
-    if event == cv.EVENT_LBUTTONDOWN: # Left click, select point
-        pts.append((x, y))  
-    if event == cv.EVENT_RBUTTONDOWN: # Right click to cancel the last selected point
-        pts.pop()  
-    if event == cv.EVENT_MBUTTONDOWN: # Central button to display the polygonal mask
+
+    if event == cv.EVENT_LBUTTONDOWN:  # Left click, select point
+        pts.append((x, y))
+    if event == cv.EVENT_RBUTTONDOWN:  # Right click to cancel the last selected point
+        pts.pop()
+    if event == cv.EVENT_MBUTTONDOWN:  # Central button to display the polygonal mask
         mask = np.zeros(img2.shape, np.uint8)
         points = np.array(pts, np.int32)
         points = points.reshape((-1, 1, 2))
         mask = cv.polylines(mask, [points], True, (255, 255, 255), 2)
-        mask2 = cv.fillPoly(mask.copy(), [points], (255, 255, 255)) # for ROI
-        #Mask3 = cv.fillPoly(mask.copy(), [points], (0, 255, 0)) # for displaying images on the desktop
+        mask2 = cv.fillPoly(mask.copy(), [points], (255, 255, 255))  # for ROI
+        # Mask3 = cv.fillPoly(mask.copy(), [points], (0, 255, 0)) # for displaying images on the desktop
 
         show_image = cv.addWeighted(src1=img2, alpha=params["alpha"], src2=mask2, beta=1-params["alpha"], gamma=0)
         cv.putText(show_image, 'PRESS SPACE TO CONTINUE THE SELECTION...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
         cv.imshow("ROI inspection", show_image)
         cv.waitKey(0)
         cv.destroyWindow("ROI inspection")
-    if len(pts) > 0:# Draw the last point in pts
-        cv.circle(img2, pts[-1], 3, (0, 0, 255), -1) 
+    if len(pts) > 0:  # Draw the last point in pts
+        cv.circle(img2, pts[-1], 3, (0, 0, 255), -1)
     if len(pts) > 1:
         for i in range(len(pts) - 1):
-            cv.circle(img2, pts[i], 4, (0, 0, 255), -1) # x ,y is the coordinates of the mouse click place
-            cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1) 
+            cv.circle(img2, pts[i], 4, (0, 0, 255), -1)  # x ,y is the coordinates of the mouse click place
+            cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1)
     cv.imshow('Poly ROI', img2)
- 
+
 
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
@@ -73,18 +74,18 @@ def returnIntersection(hist_1, hist_2):
     return intersection
 
 
-#    _____ _   _ _____ _______ 
+#    _____ _   _ _____ _______
 #   |_   _| \ | |_   _|__   __|
-#     | | |  \| | | |    | |   
-#     | | | . ` | | |    | |   
-#    _| |_| |\  |_| |_   | |   
-#   |_____|_| \_|_____|  |_|    
+#     | | |  \| | | |    | |
+#     | | | . ` | | |    | |
+#    _| |_| |\  |_| |_   | |
+#   |_____|_| \_|_____|  |_|
 
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = True
+POLYNOMIAL_ROI = False
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -100,14 +101,12 @@ with open('configs/homography_19points.yaml') as f:
 
 img = cv.imread(loadeddict.get('input_image_homography'))
 
-# Set output video
-fourcc = cv.VideoWriter_fourcc(*'DIVX')
+
+# Set input video
 cap = cv.VideoCapture(loadeddict.get('input_video'))
 fps = cap.get(cv.CAP_PROP_FPS)
-
 if not cap.isOpened():
     exit("Input video not opened correctly")
-
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
@@ -116,12 +115,14 @@ bboxes = []
 colors = []
 histo = []
 
+# Set output video
+fourcc = cv.VideoWriter_fourcc(*'DIVX')
 out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, 25.0, smallFrame.shape[1::-1])
 out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, 25.0, smallFrame.shape[1::-1])
 points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shape[1::-1])
 
 
-#    __  __          _____ _   _ 
+#    __  __          _____ _   _
 #   |  \/  |   /\   |_   _| \ | |
 #   | \  / |  /  \    | | |  \| |
 #   | |\/| | / /\ \   | | | . ` |
@@ -133,7 +134,7 @@ if MANUAL_ROI_SELECTION:
     if POLYNOMIAL_ROI:
         pts = []
         cv.namedWindow('Poly ROI')
-        cv.setMouseCallback('Poly ROI', drawPolyROI, {"image":smallFrame, "alpha":0.6})
+        cv.setMouseCallback('Poly ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
         print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
         print("[INFO] Press ‘S’ to determine the selection area and save it")
         print("[INFO] Press q or ESC to quit")
@@ -151,9 +152,9 @@ if MANUAL_ROI_SELECTION:
             # selectROI's default behaviour is to draw box starting from the center
             # when fromCenter is set to false, you can draw box starting from top left corner
             bbox = cv.selectROI('ROI', smallFrame, False)
-            if bbox == (0, 0, 0, 0): #no box selected
+            if bbox == (0, 0, 0, 0):  # no box selected
                 cv.destroyWindow('ROI')
-                break  
+                break
             crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
             hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
             histo.append(hist_1)
@@ -169,12 +170,12 @@ else:
     For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
     For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
     """
-    for bbox in  [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]:
+    for bbox in [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]:
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
         bboxes.append(bbox)
-        colors.append(colorutils.pickNewColor(color_names_used)) 
+        colors.append(colorutils.pickNewColor(color_names_used))
 
 print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
@@ -186,7 +187,8 @@ x_sequences, y_sequences = [], []
 #smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
 for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
-    x_sequences.append([]); y_sequences.append([])
+    x_sequences.append([])
+    y_sequences.append([])
 
     kalman_filters.append(KalmanFilter())
     kalman_filtersp1.append(KalmanFilter())
@@ -218,8 +220,7 @@ while (1):
         ok, frame = cap.read()
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
-        maskedFrame = np.zeros(smallFrame.shape)
-        
+        maskedFrame = np.zeros(smallFrame.shape, dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
 
         # Update position of the bounding box
@@ -241,13 +242,14 @@ while (1):
                 w = vector[2]
                 tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
                 # Add new position to list of points for the homographed space
-                x_sequences[i].append(tracking_point_new[0]); y_sequences[i].append(tracking_point_new[1])
+                x_sequences[i].append(tracking_point_new[0])
+                y_sequences[i].append(tracking_point_new[1])
                 # computation of the predicted bounding box
                 punto1_k = (int(p1_k[0]), int(p1_k[1]))
                 punto2_k = (int(p2_k[0]), int(p2_k[1]))
                 punto1_t = (int(p1_t[0]), int(p1_t[1]))
                 punto2_t = (int(p2_t[0]), int(p2_t[1]))
-                
+
                 bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
 
                 crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
@@ -268,15 +270,15 @@ while (1):
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1_k[0], punto1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 cv.rectangle(smallFrame, punto1_k, punto2_k, colors[i], 2, 1)
-                cv.rectangle(smallFrame, punto1_t, punto2_t, colors[i], 1, 1) #display both boxes to check for diffs
+                cv.rectangle(smallFrame, punto1_t, punto2_t, colors[i], 1, 1)  # display both boxes to check for diffs
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
 
                 cv.circle(img, tracking_point_new, 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-                
+
                 # Compute masked frame
                 maskedFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]] = [255, 255, 255]
-                
+
                 # Show results
                 cv.imshow('Tracking', smallFrame)
                 if SHOW_MASKS:
@@ -290,28 +292,27 @@ while (1):
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
-    else:  
+    else:
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
 cv.waitKey(0)
+out.release()
+out_mask.release()
+points.release()
 cv.destroyAllWindows()
 end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
 
-
-
-
-
-#    _____          _   _____                             _             
-#   |  __ \        | | |  __ \                           (_)            
-#   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _ 
+#    _____          _   _____                             _
+#   |  __ \        | | |  __ \                           (_)
+#   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _
 #   |  ___/ _ \/ __| __|  ___/ '__/ _ \ / __/ _ \/ __/ __| | '_ \ / _` |
 #   | |  | (_) \__ \ |_| |   | | | (_) | (_|  __/\__ \__ \ | | | | (_| |
 #   |_|   \___/|___/\__|_|   |_|  \___/ \___\___||___/___/_|_| |_|\__, |
 #                                                                  __/ |
-#                                                                 |___/ 
+#                                                                 |___/
 # (Montibeller project)
 
 # 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
