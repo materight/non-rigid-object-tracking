@@ -37,6 +37,35 @@ def createTracker(trackerType):
         print(f'Incorrect tracker name, available trackers are: {trackerTypes}')
     return tracker
 
+def drawPolyROI(event, x, y, flags, params):
+    # :mouse callback function
+    img2 = params["image"].copy()
+ 
+    if event == cv.EVENT_LBUTTONDOWN: # Left click, select point
+        pts.append((x, y))  
+    if event == cv.EVENT_RBUTTONDOWN: # Right click to cancel the last selected point
+        pts.pop()  
+    if event == cv.EVENT_MBUTTONDOWN: # Central button to display the polygonal mask
+        mask = np.zeros(img2.shape, np.uint8)
+        points = np.array(pts, np.int32)
+        points = points.reshape((-1, 1, 2))
+        mask = cv.polylines(mask, [points], True, (255, 255, 255), 2)
+        mask2 = cv.fillPoly(mask.copy(), [points], (255, 255, 255)) # for ROI
+        #Mask3 = cv.fillPoly(mask.copy(), [points], (0, 255, 0)) # for displaying images on the desktop
+
+        show_image = cv.addWeighted(src1=img2, alpha=params["alpha"], src2=mask2, beta=1-params["alpha"], gamma=0)
+        cv.putText(show_image, 'PRESS SPACE TO CONTINUE THE SELECTION...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+        cv.imshow("ROI inspection", show_image)
+        cv.waitKey(0)
+        cv.destroyWindow("ROI inspection")
+    if len(pts) > 0:# Draw the last point in pts
+        cv.circle(img2, pts[-1], 3, (0, 0, 255), -1) 
+    if len(pts) > 1:
+        for i in range(len(pts) - 1):
+            cv.circle(img2, pts[i], 4, (0, 0, 255), -1) # x ,y is the coordinates of the mouse click place
+            cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1) 
+    cv.imshow('Poly ROI', img2)
+ 
 
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
@@ -44,9 +73,18 @@ def returnIntersection(hist_1, hist_2):
     return intersection
 
 
+#    _____ _   _ _____ _______ 
+#   |_   _| \ | |_   _|__   __|
+#     | | |  \| | | |    | |   
+#     | | | . ` | | |    | |   
+#    _| |_| |\  |_| |_   | |   
+#   |_____|_| \_|_____|  |_|    
+
+
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_BOX_SELECTION = False
+MANUAL_ROI_SELECTION = True
+POLYNOMIAL_ROI = True
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -82,24 +120,49 @@ out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, 25.0, smallFrame.sha
 out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, 25.0, smallFrame.shape[1::-1])
 points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shape[1::-1])
 
-if MANUAL_BOX_SELECTION:
-    while True:
-        # draw bounding boxes over objects
-        # selectROI's default behaviour is to draw box starting from the center
-        # when fromCenter is set to false, you can draw box starting from top left corner
-        bbox = cv.selectROI('ROI', smallFrame, False)
-        if bbox == (0, 0, 0, 0): #no box selected
-            cv.destroyWindow('ROI')
-            break  
-        crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-        histo.append(hist_1)
-        bboxes.append(bbox)
-        colors.append(colorutils.pickNewColor(color_names_used))
-        print('Press q to quit selecting boxes and start tracking, or any other key to select next object')
-        if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
-            cv.destroyWindow('ROI')
-            break
+
+#    __  __          _____ _   _ 
+#   |  \/  |   /\   |_   _| \ | |
+#   | \  / |  /  \    | | |  \| |
+#   | |\/| | / /\ \   | | | . ` |
+#   | |  | |/ ____ \ _| |_| |\  |
+#   |_|  |_/_/    \_\_____|_| \_|
+
+
+if MANUAL_ROI_SELECTION:
+    if POLYNOMIAL_ROI:
+        pts = []
+        cv.namedWindow('Poly ROI')
+        cv.setMouseCallback('Poly ROI', drawPolyROI, {"image":smallFrame, "alpha":0.6})
+        print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
+        print("[INFO] Press ‘S’ to determine the selection area and save it")
+        print("[INFO] Press q or ESC to quit")
+        while True:
+            key = cv.waitKey(1) & 0xFF
+            if key == ord('q') or key == 27:
+                exit("Program interrupted by the user")
+            if key == ord("s"):
+                print("[INFO] ROI coordinates:", pts)
+                break
+        cv.destroyWindow('Poly ROI')
+    else:
+        while True:
+            # draw bounding boxes over objects
+            # selectROI's default behaviour is to draw box starting from the center
+            # when fromCenter is set to false, you can draw box starting from top left corner
+            bbox = cv.selectROI('ROI', smallFrame, False)
+            if bbox == (0, 0, 0, 0): #no box selected
+                cv.destroyWindow('ROI')
+                break  
+            crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+            hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+            histo.append(hist_1)
+            bboxes.append(bbox)
+            colors.append(colorutils.pickNewColor(color_names_used))
+            print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
+            if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
+                cv.destroyWindow('ROI')
+                break
 else:
     """
     Example bounding boxes for clip3.mp4
