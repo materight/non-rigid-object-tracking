@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import time
 import colorutils
 from kalman_filter import KalmanFilter
-from maskers import *
+from maskers import getMaskerByName
 
 
 def createTracker(trackerType):
@@ -85,7 +85,7 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = False
 
 # Read congigurations
@@ -196,7 +196,7 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    maskers.append(getMaskerByName(loadeddict.get('masker'), {"debug": True}))
+    maskers.append(getMaskerByName(loadeddict.get('masker'), debug=True, frame=smallFrame, bbox=bbox))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -220,13 +220,16 @@ cv.waitKey(0)
 
 start = time.time()
 index = 1
+
+previousFrame = smallFrame
+previousBoxes = bboxes
 while (1):
     if index > 50:
         ok, frame = cap.read()
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         maskedFrame = np.zeros(smallFrame.shape, dtype=np.uint8)
-        
+
         ok, boxes = multiTracker.update(smallFrame)
 
         # Update position of the bounding box
@@ -259,9 +262,11 @@ while (1):
                 bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
                 bbox_new_t = (int(punto1_t[0]), int(punto1_t[1]), int(punto2_t[0] - punto1_t[0]), int(punto2_t[1] - punto1_t[1]))
 
-                maskers[i].update(bbox_new=bbox_new_t, frame=smallFrame, point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
+                maskers[i].update(bbox=bbox_new_t, frame=smallFrame,
+                                  prev_bbox=previousBoxes[i], prev_frame=previousFrame,
+                                  point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
 
-                #RE-INITIALIZATION START    
+                # RE-INITIALIZATION START
                 crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
@@ -276,7 +281,7 @@ while (1):
                         else:
                             multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
                     histo[i] = hist_2
-                #RE-INITIALIZATION END
+                # RE-INITIALIZATION END
 
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1_k[0], punto1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
@@ -294,6 +299,9 @@ while (1):
                     cv.imshow('Tracking-Masks', maskedFrame)
                 if SHOW_HOMOGRAPHY:
                     cv.imshow('Tracking-Homography', img)
+
+        previousFrame = smallFrame.copy()
+        previousBoxes = boxes.copy()
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
@@ -315,8 +323,7 @@ print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
 
 #plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
-#plt.show()
-
+# plt.show()
 
 
 #    _____          _   _____                             _
