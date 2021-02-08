@@ -2,28 +2,28 @@ import cv2 as cv
 import numpy as np
 
 
-def getNonRigidMaskerByName(name, args):
+def getMaskerByName(name, args):
     if name == "Sparse" or name == "SparseNonRigidMasking":
-        return SparseNonRigidMasking(**args)
+        return SparseNonRigidMasker(**args)
     if name == "Rigid":
-        return SparseNonRigidMasking(**args)
+        return RigidMasker(**args)
     else:
-        exit("NonRigidMasker name not found")
+        exit("Masker name not found")
 
 
-class SparseNonRigidMasking:
+class SparseNonRigidMasker:
     def __init__(self, debug=False):
         self.bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
-        self.orb = cv.ORB_create(patchSize=12, edgeThreshold=12)
+        self.orb = cv.ORB_create(patchSize=5, edgeThreshold=5)
         self.debug = debug
         self.des_prev = None
         self.distances = []
 
-
     def update(self, bbox_new, frame, point1_t, point2_t, point1_k, point2_k, color):
         crop_frame = frame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
         kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
-        #smallFrame = cv.drawKeypoints(frame, kp, None, color=(0,255,0), flags=0)
+        #smallFrame = cv.drawKeypoints(crop_frame, kp, None, color=(0,255,0), flags=0)
+        #cv.imshow('Test features', smallFrame)
 
         if not self.des_prev is None:
             matches = self.bf.match(self.des_prev,des)
@@ -34,7 +34,7 @@ class SparseNonRigidMasking:
             #img3 = cv.drawMatches(crop_frame_prev,kp_prev,crop_frame,kp,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
             #plt.imshow(img3),plt.show()
         
-            #convert coordinates to the space of small_frame (bigger image)                
+            #convert coordinates to the space of 'frame' (bigger image)                
             kp_matched += np.array([bbox_new[0], bbox_new[1]])
                             
             hull = cv.convexHull(kp_matched)
@@ -44,10 +44,10 @@ class SparseNonRigidMasking:
         self.kp_prev = kp
         self.crop_frame_prev = crop_frame
         if self.debug:
-            RigidMasking(self.debug).update(bbox_new, frame, point1_t, point2_t, point1_k, point2_k, color)
+            RigidMasker(self.debug).update(bbox_new, frame, point1_t, point2_t, point1_k, point2_k, color)
     
 
-class RigidMasking:
+class RigidMasker:
     def __init__(self, debug):
         self.distances = []
         self.debug = debug

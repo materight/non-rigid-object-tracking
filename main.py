@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import time
 import colorutils
 from kalman_filter import KalmanFilter
-from non_rigid_masker import *
+from maskers import *
 
 
 def createTracker(trackerType):
@@ -85,7 +85,7 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = True
+MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = False
 
 # Read congigurations
@@ -111,7 +111,7 @@ if not cap.isOpened():
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
-non_rigid_maskers = []
+maskers = []
 color_names_used = set()
 bboxes = []
 colors = []
@@ -172,7 +172,7 @@ else:
     For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
     For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
     """
-    for bbox in [(888, 607, 56, 97)]:
+    for bbox in [(725, 495, 53, 82)]:
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
@@ -196,7 +196,7 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    non_rigid_maskers.append(getNonRigidMaskerByName(loadeddict.get('non_rigid_masker_algo'), {"debug": True}))
+    maskers.append(getMaskerByName(loadeddict.get('masker'), {"debug": True}))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -259,7 +259,7 @@ while (1):
                 bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
                 bbox_new_t = (int(punto1_t[0]), int(punto1_t[1]), int(punto2_t[0] - punto1_t[0]), int(punto2_t[1] - punto1_t[1]))
 
-                non_rigid_maskers[i].update(bbox_new=bbox_new_t, frame=smallFrame, point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
+                maskers[i].update(bbox_new=bbox_new_t, frame=smallFrame, point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
 
                 #RE-INITIALIZATION START    
                 crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
@@ -314,8 +314,9 @@ end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
 
-#plt.hist([m.distances for m in non_rigid_maskers], bins=np.unique([m.distances for m in non_rigid_maskers]).size)
+#plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
 #plt.show()
+
 
 
 #    _____          _   _____                             _

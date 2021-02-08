@@ -12,4 +12,4 @@ out_tracking_results: output/Tracking/results.png
 input_video: output/Video/clip3.mp4
 input_image_homography: sources/Map/basket_field.jpg
 
-non_rigid_masker_algo: Sparse
+masker: Sparse
