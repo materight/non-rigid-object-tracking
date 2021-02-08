@@ -11,7 +11,7 @@ class SparseNonRigidMasker:
         self.des_prev = None
         self.distances = []
 
-    def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color, prev_bbox, prev_frame):
+    def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
         # smallFrame = cv.drawKeypoints(crop_frame, kp, None, color=(0,255,0), flags=0)
@@ -36,4 +36,4 @@ class SparseNonRigidMasker:
         self.kp_prev = kp
         self.crop_frame_prev = crop_frame
         if self.debug:
-            RigidMasker(self.debug).update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color, prev_bbox, prev_frame)
+            RigidMasker(self.debug).update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color)
