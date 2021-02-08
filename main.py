@@ -66,7 +66,7 @@ def drawPolyROI(event, x, y, flags, params):
         for i in range(len(pts) - 1):
             cv.circle(img2, pts[i], 4, (0, 0, 255), -1)  # x ,y is the coordinates of the mouse click place
             cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1)
-    cv.imshow('Poly ROI', img2)
+    cv.imshow('ROI', img2)
 
 
 def returnIntersection(hist_1, hist_2):
@@ -85,8 +85,8 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
-POLYNOMIAL_ROI = False
+MANUAL_ROI_SELECTION = True
+POLYNOMIAL_ROI = True
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -133,39 +133,43 @@ points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shap
 
 
 if MANUAL_ROI_SELECTION:
+    bbox = None
     if POLYNOMIAL_ROI:
         pts = []
-        cv.namedWindow('Poly ROI')
-        cv.setMouseCallback('Poly ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
+        cv.namedWindow('ROI')
+        cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
         print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
         print("[INFO] Press ‘S’ to determine the selection area and save it")
         print("[INFO] Press q or ESC to quit")
-        while True:
+    while True:
+        if POLYNOMIAL_ROI:
             key = cv.waitKey(1) & 0xFF
             if key == ord('q') or key == 27:
-                exit("Program interrupted by the user")
-            if key == ord("s"):
-                print("[INFO] ROI coordinates:", pts)
+                cv.destroyWindow('ROI')
                 break
-        cv.destroyWindow('Poly ROI')
-    else:
-        while True:
-            # draw bounding boxes over objects
-            # selectROI's default behaviour is to draw box starting from the center
-            # when fromCenter is set to false, you can draw box starting from top left corner
+            if key == ord("s"): 
+                print("[INFO] ROI coordinates:", pts)
+                if len(pts) > 3:
+                    bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
+                    pts = []
+                else:
+                    print("Not enough points selected")  
+        else:
             bbox = cv.selectROI('ROI', smallFrame, False)
             if bbox == (0, 0, 0, 0):  # no box selected
                 cv.destroyWindow('ROI')
                 break
-            crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-            hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-            histo.append(hist_1)
-            bboxes.append(bbox)
-            colors.append(colorutils.pickNewColor(color_names_used))
             print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
             if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
                 cv.destroyWindow('ROI')
                 break
+        if bbox: #because the callback of the mouse doesn not block the main thread
+            crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+            hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+            histo.append(hist_1)
+            bboxes.append(bbox)
+            colors.append(colorutils.pickNewColor(color_names_used))    
+            bbox = None
 else:
     """
     Example bounding boxes for clip3.mp4
@@ -196,7 +200,7 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    maskers.append(getMaskerByName(loadeddict.get('masker'), {"debug": True}))
+    maskers.append(getMaskerByName(loadeddict.get('masker'), {"debug": True, "poly_roi": pts}))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
