@@ -25,7 +25,7 @@ class SparseNonRigidMasker:
             self.mask = np.zeros([bbox[3], bbox[2]], dtype=np.uint8)
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
-    def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color, prev_bbox, prev_frame):
+    def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         kp, des = self.orb.detectAndCompute(crop_frame, mask=self.mask)
 
@@ -56,4 +56,4 @@ class SparseNonRigidMasker:
         self.kp_prev = kp
         self.crop_frame_prev = crop_frame
         if self.debug:
-            RigidMasker(self.debug).update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color, prev_bbox, prev_frame)
+            RigidMasker(self.debug).update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color)

@@ -233,8 +233,6 @@ cv.waitKey(0)
 start = time.time()
 index = 1
 
-previousFrame = smallFrame
-previousBoxes = bboxes
 while (1):
     if index > 50:
         ok, frame = cap.read()
@@ -275,7 +273,6 @@ while (1):
                 bbox_new_t = (int(punto1_t[0]), int(punto1_t[1]), int(punto2_t[0] - punto1_t[0]), int(punto2_t[1] - punto1_t[1]))
 
                 maskers[i].update(bbox=bbox_new_t, frame=smallFrame,
-                                  prev_bbox=previousBoxes[i], prev_frame=previousFrame,
                                   point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
 
                 # RE-INITIALIZATION START
@@ -311,9 +308,6 @@ while (1):
                     cv.imshow('Tracking-Masks', maskedFrame)
                 if SHOW_HOMOGRAPHY:
                     cv.imshow('Tracking-Homography', img)
-
-        previousFrame = smallFrame.copy()
-        previousBoxes = boxes.copy()
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
