@@ -86,7 +86,7 @@ def returnIntersection(hist_1, hist_2):
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = True
+POLYNOMIAL_ROI = False
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -114,6 +114,7 @@ kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
 maskers = []
 color_names_used = set()
 bboxes = []
+poly_roi = []
 colors = []
 histo = []
 
@@ -144,12 +145,14 @@ if MANUAL_ROI_SELECTION:
     while True:
         if POLYNOMIAL_ROI:
             key = cv.waitKey(1) & 0xFF
-            if key == ord('q') or key == 27:
-                cv.destroyWindow('ROI')
-                break
+            #if key == ord('q') or key == 27:
+            #    cv.destroyWindow('ROI')
+            #    break
             if key == ord("s"): 
                 print("[INFO] ROI coordinates:", pts)
-                if len(pts) > 3:
+                if len(pts) >= 3:
+                    #self.poly_roi.append(pts[0])
+                    poly_roi.append(pts)
                     bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
                     pts = []
                 else:
@@ -160,9 +163,7 @@ if MANUAL_ROI_SELECTION:
                 cv.destroyWindow('ROI')
                 break
             print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
-            if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
-                cv.destroyWindow('ROI')
-                break
+           
         if bbox: #because the callback of the mouse doesn not block the main thread
             crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
             hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
@@ -170,6 +171,12 @@ if MANUAL_ROI_SELECTION:
             bboxes.append(bbox)
             colors.append(colorutils.pickNewColor(color_names_used))    
             bbox = None
+        else:
+            time.sleep(0.2)
+            
+        if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
+            cv.destroyWindow('ROI')
+            break
 else:
     """
     Example bounding boxes for clip3.mp4
@@ -200,7 +207,8 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    maskers.append(getMaskerByName(loadeddict.get('masker'), debug=True, frame=smallFrame, bbox=bbox))
+    poly_roi_tmp = poly_roi[i] if POLYNOMIAL_ROI else None
+    maskers.append(getMaskerByName(loadeddict.get('masker'), debug=True, frame=smallFrame, bbox=bbox, poly_roi=poly_roi_tmp))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
