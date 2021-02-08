@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import time
 import colorutils
 from kalman_filter import KalmanFilter
+from non_rigid_masker import *
 
 
 def createTracker(trackerType):
@@ -110,6 +111,7 @@ if not cap.isOpened():
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
+non_rigid_maskers = []
 color_names_used = set()
 bboxes = []
 colors = []
@@ -170,7 +172,7 @@ else:
     For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
     For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
     """
-    for bbox in [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]:
+    for bbox in [(888, 607, 56, 97)]:
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
@@ -194,6 +196,8 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
+    non_rigid_maskers.append(getNonRigidMaskerByName(loadeddict.get('non_rigid_masker_algo'), {"debug": True}))
+
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
     cv.rectangle(smallFrame, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), (255, 0, 0), 2)
@@ -213,6 +217,7 @@ cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (2
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
+
 start = time.time()
 index = 1
 while (1):
@@ -221,6 +226,7 @@ while (1):
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         maskedFrame = np.zeros(smallFrame.shape, dtype=np.uint8)
+        
         ok, boxes = multiTracker.update(smallFrame)
 
         # Update position of the bounding box
@@ -251,7 +257,11 @@ while (1):
                 punto2_t = (int(p2_t[0]), int(p2_t[1]))
 
                 bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
+                bbox_new_t = (int(punto1_t[0]), int(punto1_t[1]), int(punto2_t[0] - punto1_t[0]), int(punto2_t[1] - punto1_t[1]))
 
+                non_rigid_maskers[i].update(bbox_new=bbox_new_t, frame=smallFrame, point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
+
+                #RE-INITIALIZATION START    
                 crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
                 hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                 intersection = returnIntersection(histo[i], hist_2)
@@ -266,11 +276,10 @@ while (1):
                         else:
                             multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
                     histo[i] = hist_2
+                #RE-INITIALIZATION END
 
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1_k[0], punto1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                cv.rectangle(smallFrame, punto1_k, punto2_k, colors[i], 2, 1)
-                cv.rectangle(smallFrame, punto1_t, punto2_t, colors[i], 1, 1)  # display both boxes to check for diffs
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
 
                 cv.circle(img, tracking_point_new, 4, colors[i], -1)
@@ -303,6 +312,10 @@ points.release()
 cv.destroyAllWindows()
 end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
+
+
+#plt.hist([m.distances for m in non_rigid_maskers], bins=np.unique([m.distances for m in non_rigid_maskers]).size)
+#plt.show()
 
 
 #    _____          _   _____                             _
