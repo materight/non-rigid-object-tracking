@@ -82,11 +82,14 @@ def returnIntersection(hist_1, hist_2):
 #    _| |_| |\  |_| |_   | |
 #   |_____|_| \_|_____|  |_|
 
-
+DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = True
+POLYNOMIAL_ROI = False
+
+WINDOW_HEIGHT = 700
+
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -105,6 +108,8 @@ img = cv.imread(loadeddict.get('input_image_homography'))
 
 # Set input video
 cap = cv.VideoCapture(loadeddict.get('input_video'))
+ratio = cap.get(cv.CAP_PROP_FRAME_WIDTH) / cap.get(cv.CAP_PROP_FRAME_HEIGHT)
+WINDOW_WIDTH = int(WINDOW_HEIGHT * ratio)
 fps = cap.get(cv.CAP_PROP_FPS)
 if not cap.isOpened():
     exit("Input video not opened correctly")
@@ -146,10 +151,10 @@ if MANUAL_ROI_SELECTION:
     while True:
         if POLYNOMIAL_ROI:
             #key = cv.waitKey(1) & 0xFF
-            #if key == ord('q') or key == 27:
+            # if key == ord('q') or key == 27:
             #    cv.destroyWindow('ROI')
             #    break
-            """if key == ord("s"): 
+            """if key == ord("s"):
                 print("[INFO] ROI coordinates:", pts)
                 if len(pts) >= 3:
                     #self.poly_roi.append(pts[0])
@@ -157,37 +162,37 @@ if MANUAL_ROI_SELECTION:
                     bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
                     pts = []
                 else:
-                    print("Not enough points selected")  """;  
+                    print("Not enough points selected")  """
         else:
             bbox = cv.selectROI('ROI', smallFrame, False)
             if bbox == (0, 0, 0, 0):  # no box selected
                 cv.destroyWindow('ROI')
                 break
             print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
-           
-        if bbox: #because the callback of the mouse doesn not block the main thread
+
+        if bbox:  # because the callback of the mouse doesn not block the main thread
             crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
             hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
             histo.append(hist_1)
             bboxes.append(bbox)
-            colors.append(colorutils.pickNewColor(color_names_used))    
+            colors.append(colorutils.pickNewColor(color_names_used))
             bbox = None
         else:
             time.sleep(0.2)
-            
+
         key = cv.waitKey(0) & 0xFF
         if (key == ord('q')):  # q is pressed
             cv.destroyWindow('ROI')
             break
-        if POLYNOMIAL_ROI and key == ord("s"): 
+        if POLYNOMIAL_ROI and key == ord("s"):
             print("[INFO] ROI coordinates:", pts)
             if len(pts) >= 3:
-                #self.poly_roi.append(pts[0])
+                # self.poly_roi.append(pts[0])
                 poly_roi.append(pts)
-                bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
+                bbox = cv.boundingRect(np.array(pts))  # extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
                 pts = []
             else:
-                print("Not enough points selected")  
+                print("Not enough points selected")
 else:
     """
     Example bounding boxes for clip3.mp4
@@ -229,13 +234,13 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    maskers.append(getMaskerByName(loadeddict.get('masker'), 
-                                   debug=True, 
-                                   frame=smallFrame, 
-                                   bbox=bbox, 
-                                   poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None, 
+    maskers.append(getMaskerByName(loadeddict.get('masker'),
+                                   debug=DEBUG,
+                                   frame=smallFrame,
+                                   bbox=bbox,
+                                   poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None,
                                    update_mask=loadeddict.get('update_mask')
-                                ))
+                                   ))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -253,8 +258,17 @@ for i, bbox in enumerate(bboxes):
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
 cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+cv.namedWindow('Tracking', cv.WINDOW_NORMAL)
+cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
+
+if SHOW_MASKS:
+    cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
+    cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
+if SHOW_HOMOGRAPHY:
+    cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
+    cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
 
 
@@ -262,7 +276,7 @@ cv.waitKey(0)
 
 start = time.time()
 index = 1
-cap = cv.VideoCapture(loadeddict.get('input_video')) #added by Steve to feed the first frame at the first iteration
+cap = cv.VideoCapture(loadeddict.get('input_video'))  # added by Steve to feed the first frame at the first iteration
 while (1):
     if index > 50:
         ok, frame = cap.read()
@@ -294,16 +308,13 @@ while (1):
                 x_sequences[i].append(tracking_point_new[0])
                 y_sequences[i].append(tracking_point_new[1])
                 # computation of the predicted bounding box
-                punto1_k = (int(p1_k[0]), int(p1_k[1]))
-                punto2_k = (int(p2_k[0]), int(p2_k[1]))
-                punto1_t = (int(p1_t[0]), int(p1_t[1]))
-                punto2_t = (int(p2_t[0]), int(p2_t[1]))
+                point1_k = (int(p1_k[0]), int(p1_k[1]))
+                point2_k = (int(p2_k[0]), int(p2_k[1]))
+                point1_t = (int(p1_t[0]), int(p1_t[1]))
+                point2_t = (int(p2_t[0]), int(p2_t[1]))
 
-                bbox_new = (int(punto1_k[0]), int(punto1_k[1]), int(punto2_k[0] - punto1_k[0]), int(punto2_k[1] - punto1_k[1]))
-                bbox_new_t = (int(punto1_t[0]), int(punto1_t[1]), int(punto2_t[0] - punto1_t[0]), int(punto2_t[1] - punto1_t[1]))
-
-                maskers[i].update(bbox=bbox_new_t, frame=smallFrame,
-                                  point1_t=punto1_t, point2_t=punto2_t, point1_k=punto1_k, point2_k=punto1_k, color=colors[i])
+                bbox_new = (int(point1_k[0]), int(point1_k[1]), int(point2_k[0] - point1_k[0]), int(point2_k[1] - point1_k[1]))
+                bbox_new_t = (int(point1_t[0]), int(point1_t[1]), int(point2_t[0] - point1_t[0]), int(point2_t[1] - point1_t[1]))
 
                 # RE-INITIALIZATION START
                 crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
@@ -322,8 +333,14 @@ while (1):
                     histo[i] = hist_2
                 # RE-INITIALIZATION END
 
+                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, color=colors[i])
+
+                if DEBUG:
+                    cv.rectangle(smallFrame, point1_k, point1_k, colors[i], 1, 1)
+                    cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
+
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-                cv.putText(smallFrame, '{:.2f}'.format(intersection), (punto1_k[0], punto1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
 
                 cv.circle(img, tracking_point_new, 4, colors[i], -1)
