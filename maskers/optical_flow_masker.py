@@ -1,23 +1,26 @@
 import cv2 as cv
 import numpy as np
+
+from .masker import Masker
 from .rigid_masker import RigidMasker
 
 
-class OpticalFlowMasker:
-    def __init__(self, debug=False, frame=None, bbox=None):
-        self.debug = debug
+class OpticalFlowMasker(Masker):
+    def __init__(self, **args):
+        Masker.__init__(self, **args)
+
         # Extract featurespoints
-        grayFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        grayFrame = cv.cvtColor(self.prevFrame, cv.COLOR_BGR2GRAY)
         mask = np.zeros_like(grayFrame)
-        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = 255
+        mask[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]] = 255
         self.featurePoints = cv.goodFeaturesToTrack(grayFrame, mask=mask, maxCorners=500, qualityLevel=0.2, minDistance=2, blockSize=7)
         # Print extracted points
         for p in self.featurePoints:
             x, y = p.ravel()
-            cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
-        # Set initial previous values
-        self.prevFrame = frame
-        self.prevBbox = bbox
+            cv.circle(self.prevFrame, (x, y), 2, (0, 0, 255), -1)
+        
+        if self.debug:
+            self.rigid_masker = RigidMasker(**args)
 
     def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
         frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -46,4 +49,4 @@ class OpticalFlowMasker:
         self.prevBbox = bbox
 
         if self.debug:
-            RigidMasker(self.debug).update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color)
+            self.rigid_masker.update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color)

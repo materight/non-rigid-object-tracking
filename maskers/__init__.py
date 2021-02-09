@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+
 from .rigid_masker import RigidMasker
 from .sparse_non_rigid_masker import SparseNonRigidMasker
 from .optical_flow_masker import OpticalFlowMasker

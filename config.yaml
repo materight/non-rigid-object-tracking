@@ -13,3 +13,4 @@ input_video: output/Video/clip3.mp4
 input_image_homography: sources/Map/basket_field.jpg
 
 masker: Sparse
+update_mask: False

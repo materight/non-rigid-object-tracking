@@ -85,7 +85,7 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = True
+MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
 
 # Read congigurations
@@ -110,6 +110,7 @@ if not cap.isOpened():
     exit("Input video not opened correctly")
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+first_frame = smallFrame.copy()
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
 maskers = []
 color_names_used = set()
@@ -178,7 +179,7 @@ if MANUAL_ROI_SELECTION:
         if (key == ord('q')):  # q is pressed
             cv.destroyWindow('ROI')
             break
-        if key == ord("s"): 
+        if POLYNOMIAL_ROI and key == ord("s"): 
             print("[INFO] ROI coordinates:", pts)
             if len(pts) >= 3:
                 #self.poly_roi.append(pts[0])
@@ -192,8 +193,19 @@ else:
     Example bounding boxes for clip3.mp4
     For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
     For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
+
+    Example poly_roi for clip3.mp4
+    [(735, 499), (747, 512), (759, 528), (762, 547), (773, 569), (768, 572), (753, 551), (747, 575), (738, 575), (739, 533), (731, 527), (730, 504)]
     """
-    for bbox in [(725, 495, 53, 82)]:
+    if POLYNOMIAL_ROI:
+        pts = [(735, 499), (747, 512), (759, 528), (762, 547), (773, 569), (768, 572), (753, 551), (747, 575), (738, 575), (739, 533), (731, 527), (730, 504)]
+        poly_roi.append(pts)
+        bbox = cv.boundingRect(np.array(pts))
+        example_bboxes = [bbox]
+    else:
+        example_bboxes = [(725, 495, 53, 82)]
+
+    for bbox in example_bboxes:
         crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
         histo.append(hist_1)
@@ -218,7 +230,13 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp2.append(KalmanFilter())
 
     poly_roi_tmp = poly_roi[i] if POLYNOMIAL_ROI else None
-    maskers.append(getMaskerByName(loadeddict.get('masker'), debug=True, frame=smallFrame, bbox=bbox, poly_roi=poly_roi_tmp))
+    maskers.append(getMaskerByName(loadeddict.get('masker'), 
+                                   debug=True, 
+                                   frame=smallFrame, 
+                                   bbox=bbox, 
+                                   poly_roi=poly_roi_tmp, 
+                                   update_mask=loadeddict.get('update_mask')
+                                ))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -242,7 +260,7 @@ cv.waitKey(0)
 
 start = time.time()
 index = 1
-
+cap = cv.VideoCapture(loadeddict.get('input_video')) #added by Steve to feed the first frame at the first iteration
 while (1):
     if index > 50:
         ok, frame = cap.read()
