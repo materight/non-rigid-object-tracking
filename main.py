@@ -86,7 +86,7 @@ def returnIntersection(hist_1, hist_2):
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = False
+POLYNOMIAL_ROI = True
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -144,11 +144,11 @@ if MANUAL_ROI_SELECTION:
         print("[INFO] Press q or ESC to quit")
     while True:
         if POLYNOMIAL_ROI:
-            key = cv.waitKey(1) & 0xFF
+            #key = cv.waitKey(1) & 0xFF
             #if key == ord('q') or key == 27:
             #    cv.destroyWindow('ROI')
             #    break
-            if key == ord("s"): 
+            """if key == ord("s"): 
                 print("[INFO] ROI coordinates:", pts)
                 if len(pts) >= 3:
                     #self.poly_roi.append(pts[0])
@@ -156,7 +156,7 @@ if MANUAL_ROI_SELECTION:
                     bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
                     pts = []
                 else:
-                    print("Not enough points selected")  
+                    print("Not enough points selected")  """;  
         else:
             bbox = cv.selectROI('ROI', smallFrame, False)
             if bbox == (0, 0, 0, 0):  # no box selected
@@ -174,9 +174,19 @@ if MANUAL_ROI_SELECTION:
         else:
             time.sleep(0.2)
             
-        if (cv.waitKey(0) & 0xFF == ord('q')):  # q is pressed
+        key = cv.waitKey(0) & 0xFF
+        if (key == ord('q')):  # q is pressed
             cv.destroyWindow('ROI')
             break
+        if key == ord("s"): 
+            print("[INFO] ROI coordinates:", pts)
+            if len(pts) >= 3:
+                #self.poly_roi.append(pts[0])
+                poly_roi.append(pts)
+                bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
+                pts = []
+            else:
+                print("Not enough points selected")  
 else:
     """
     Example bounding boxes for clip3.mp4
