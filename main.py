@@ -85,8 +85,11 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = False
+
+WINDOW_HEIGHT = 700
+
 
 # Read congigurations
 with open('config.yaml') as f:
@@ -105,6 +108,8 @@ img = cv.imread(loadeddict.get('input_image_homography'))
 
 # Set input video
 cap = cv.VideoCapture(loadeddict.get('input_video'))
+ratio = cap.get(cv.CAP_PROP_FRAME_WIDTH) / cap.get(cv.CAP_PROP_FRAME_HEIGHT)
+WINDOW_WIDTH = int(WINDOW_HEIGHT * ratio)
 fps = cap.get(cv.CAP_PROP_FPS)
 if not cap.isOpened():
     exit("Input video not opened correctly")
@@ -149,7 +154,7 @@ if MANUAL_ROI_SELECTION:
             # if key == ord('q') or key == 27:
             #    cv.destroyWindow('ROI')
             #    break
-            """if key == ord("s"): 
+            """if key == ord("s"):
                 print("[INFO] ROI coordinates:", pts)
                 if len(pts) >= 3:
                     #self.poly_roi.append(pts[0])
@@ -253,8 +258,17 @@ for i, bbox in enumerate(bboxes):
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
 cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+cv.namedWindow('Tracking', cv.WINDOW_NORMAL)
+cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
+
+if SHOW_MASKS:
+    cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
+    cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
+if SHOW_HOMOGRAPHY:
+    cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
+    cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
 
 start = time.time()
