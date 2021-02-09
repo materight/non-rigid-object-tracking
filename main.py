@@ -229,12 +229,11 @@ for i, bbox in enumerate(bboxes):
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
 
-    poly_roi_tmp = poly_roi[i] if POLYNOMIAL_ROI else None
     maskers.append(getMaskerByName(loadeddict.get('masker'), 
                                    debug=True, 
                                    frame=smallFrame, 
                                    bbox=bbox, 
-                                   poly_roi=poly_roi_tmp, 
+                                   poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None, 
                                    update_mask=loadeddict.get('update_mask')
                                 ))
 

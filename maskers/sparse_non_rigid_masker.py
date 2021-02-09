@@ -12,11 +12,11 @@ class SparseNonRigidMasker(Masker):
 
         self.bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
         self.orb = cv.ORB_create(patchSize=5, edgeThreshold=5)
+        self.update_mask = update_mask
         self.poly_roi = poly_roi
         
         self.des_prev = None
         self.mask = None
-        self.update_mask = update_mask
         self.distances = []
 
         if self.poly_roi: #convert the list of points into a binary map
@@ -57,8 +57,7 @@ class SparseNonRigidMasker(Masker):
             hull = cv.convexHull(kp_matched) #TODO: instead of recomputing convert from the previous hull
             cv.drawContours(frame, [hull], -1, color, 2)
         else:
-            matches_indexes = None   
-
+            matches_indexes = None  
         
         self.des_prev , self.kp_prev = self.filterFeaturesByMask(kp, des, matches_indexes)
         self.crop_frame_prev = crop_frame
