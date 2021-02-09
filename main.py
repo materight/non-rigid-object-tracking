@@ -85,7 +85,7 @@ def returnIntersection(hist_1, hist_2):
 
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 
 # Read congigurations
@@ -257,6 +257,9 @@ cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
 
+
+
+
 start = time.time()
 index = 1
 cap = cv.VideoCapture(loadeddict.get('input_video')) #added by Steve to feed the first frame at the first iteration
@@ -356,7 +359,7 @@ print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
 
 #plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
-# plt.show()
+#plt.show()
 
 
 #    _____          _   _____                             _
