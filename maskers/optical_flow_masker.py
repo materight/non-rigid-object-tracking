@@ -2,7 +2,6 @@ import cv2 as cv
 import numpy as np
 
 from .masker import Masker
-from .rigid_masker import RigidMasker
 
 
 class OpticalFlowMasker(Masker):
@@ -22,10 +21,7 @@ class OpticalFlowMasker(Masker):
         self.prevFrame = grayFrame
         self.index = 0
 
-        if self.debug:
-            self.rigid_masker = RigidMasker(**args)
-
-    def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
+    def update(self, bbox, frame, color):
         self.index += 1
         grayFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
@@ -49,6 +45,3 @@ class OpticalFlowMasker(Masker):
         # Update previous values
         self.prevFrame = grayFrame
         self.prevBbox = bbox
-
-        if self.debug:
-            self.rigid_masker.update(bbox, frame, point1_t, point2_t, point1_k, point2_k, color)
