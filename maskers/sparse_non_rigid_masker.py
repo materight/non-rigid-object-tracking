@@ -18,6 +18,7 @@ class SparseNonRigidMasker(Masker):
         self.des_prev = None
         self.mask = None
         self.distances = []
+        self.c = 0
 
         if self.poly_roi: #convert the list of points into a binary map
             for i in range(len(self.poly_roi)): #adapt coordinates
@@ -33,7 +34,13 @@ class SparseNonRigidMasker(Masker):
 
     def update(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
+
+        if self.c == 0:
+            crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
+            kp, des = self.orb.detectAndCompute(crop_frame, mask=self.mask)
+        else:
+            kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
+        self.c += 1
 
         if des is None:
             print("ZERO")
@@ -42,10 +49,10 @@ class SparseNonRigidMasker(Masker):
             matches = self.bf.match(np.array(self.des_prev), des)
             self.distances += [m.distance for m in matches]
             matches_indexes = [m.trainIdx for m in matches]
-            kp_matched = np.array([p.pt for p in kp], dtype=np.int)[matches_indexes]
-            # matches = sorted(matches, key = lambda x:x.distance)
-            # img3 = cv.drawMatches(crop_frame_prev,kp_prev,crop_frame,kp,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-            # plt.imshow(img3),plt.show()
+            kp_matched = np.array([p.pt for p in kp], dtype=np.int)[matches_indexes]            
+            #matches = sorted(matches, key = lambda x:x.distance)
+            #img3 = cv.drawMatches(self.crop_frame_prev,self.kp_prev,crop_frame,kp,matches[:20],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+            #plt.imshow(img3),plt.show()
 
             if not self.mask is None: #update the mask
                 hull = cv.convexHull(kp_matched)
@@ -68,6 +75,8 @@ class SparseNonRigidMasker(Masker):
     def filterFeaturesByMask(self, kp, des, matches_indexes):
         """
         Filter all features that are out the mask (to focus on the object being tracked).
+
+        TODO: probably this loop is useless. Replace with self.des_prev , self.kp_prev = kp[matches_indexes] , des[matches_indexes]
         """
 
         if self.mask is not None and self.update_mask: 
@@ -79,6 +88,8 @@ class SparseNonRigidMasker(Masker):
                     if self.mask[y,x] > 0:
                         kp_filtered.append(elem)
                         des_filtered.append(des[i])
+                    else:
+                        print("\n CONTROLLAMI \n")
             return des_filtered , kp_filtered
         else:
             return des , kp
@@ -102,3 +113,31 @@ mask2[:,:,2] = self.mask
 show_image = cv.addWeighted(src1=smallFrame, alpha=0.7, src2=mask2, beta=0.3, gamma=0)
 cv.imshow('Test features', self.mask)
 cv.waitKey(0)"""
+
+"""
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+    def exp(self, bbox, frame, point1_t, point2_t, point1_k, point2_k, color):
+        crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
+        kp2, des2 = self.orb.detectAndCompute(crop_frame, mask=None)
+        des_dentro , kp_dentro , des_fuori , kp_fuori = self.filterFeaturesByMask(kp2, des2, None)
+
+        X = []
+        for a in des_dentro:
+            X.append(a)
+        for a in des_fuori:
+            X.append(a)
+        
+        X = np.array(X)
+        y = np.concatenate([np.ones(len(des_dentro)), np.zeros(len(des_fuori))])
+
+        
+        scaler = StandardScaler()
+        X_pca = PCA(n_components=3).fit_transform(scaler.fit_transform(X))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(X_pca[:len(des_dentro),0] , X_pca[:len(des_dentro),1], X_pca[:len(des_dentro),2])
+        ax.scatter(X_pca[len(des_dentro):,0] , X_pca[len(des_dentro):,1], X_pca[len(des_dentro):,2])
+        plt.show()
+"""
