@@ -2,9 +2,13 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
+from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.metrics import f1_score
 
 from .masker import Masker
 
@@ -32,56 +36,130 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
         Requires the very first frame as input here
         """
-        crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
-
-        crop_frame[0:10, 0:10] = [0,50,255] #for debug
-        
         if self.index == 0:
+            crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
+        
             assert crop_frame.shape[:2] == self.mask.shape
+            #X , y = self.getRGBFeatures(crop_frame)
+            X , y = self.getRGBFeatures2(crop_frame, train=True)
+            X_nroi , y_nroi = self.getRegionNonInterest(frame)
 
-            #extract foreground
-            B = crop_frame[:,:,0][self.mask >= 0] #.flatten()
-            G = crop_frame[:,:,1][self.mask >= 0] #.flatten()
-            R = crop_frame[:,:,2][self.mask >= 0] #.flatten()
+            X = np.concatenate([X, X_nroi], axis=0)
+            y = np.concatenate([y, y_nroi])
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            r_vals , g_vals , b_vals , c_vals = [] , [] , [] , [] 
-            for i in range(len(G)):
-                r_vals.append(R[i]) 
-                g_vals.append(G[i])
-                b_vals.append(B[i])
-                c_vals.append([R[i], G[i], B[i]])
-            ax.scatter(r_vals, g_vals, b_vals, c=np.array(c_vals)/255)
+            k = 5
+            self.scaler = StandardScaler()
+            X = self.scaler.fit_transform(X)
+            self.knn = KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            y_pred = self.knn.predict(X)
+            probs = self.knn.predict_proba(X)
+            f1 = round(f1_score(y, y_pred), 2)
+            print("F1 score classifier = ", f1)
+
+            prob_map = np.zeros_like(self.mask, dtype=np.int16)
+            mask_active_idx = np.argwhere(self.mask > 0)
+            mask_deactive_idx = np.argwhere(self.mask == 0)
+
+            for i , idx in enumerate(mask_active_idx):
+                prob_map[idx[0], idx[1]] = probs[i, 1] * 255  
+
+            start = sum(y==1)
+            for i , idx in enumerate(mask_deactive_idx):
+                prob_map[idx[0], idx[1]] = probs[start + i, 1]  * 255
+
+
+            """fig = plt.figure()
+            #ax = fig.add_subplot(111, projection='3d')
+            #ax.scatter(X[y == 1, 0], X[y == 1, 1], X[y == 1, 2])
+            #ax.scatter(X[y == 0, 0], X[y == 0, 1], X[y == 0, 2])
+            ax.set_title('KNN F1 = {} with K={}'.format(f1, k))
+            plt.show()"""
+
+            plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             plt.show()
-            
-            X = np.stack([B,G,R], axis=1)
-            y = np.ones(G.shape[0])
-
-            #extract background
-            B = crop_frame[:,:,0][self.mask == 0] #.flatten()
-            G = crop_frame[:,:,1][self.mask == 0] #.flatten()
-            R = crop_frame[:,:,2][self.mask == 0] #.flatten()
-            
-            X = np.concatenate([X, np.stack([B, G, R], axis=1)], axis=0)
-            y = np.concatenate([y, np.zeros(G.shape[0])])
-
-            k = 21
-            knn = KNeighborsClassifier(n_neighbors=k).fit(X, y)
-            y_pred = knn.predict(X)
-            acc = round(sum(y == y_pred) / len(y),2)
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(X[y == 1, 0], X[y == 1, 1], X[y == 1, 2])
-            ax.scatter(X[y == 0, 0], X[y == 0, 1], X[y == 0, 2])
-            ax.set_title('KNN accuracy = {} with K={}'.format(acc, k))
-            plt.show()
+        else:
+            crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+            X , _ = self.getRGBFeatures2(crop_frame, train=False)
+            X = self.scaler.transform(X)
+            probs = self.knn.predict_proba(X)
+            prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
+            c = 0
+            for i in range(prob_map.shape[0]):
+                for j in range(prob_map.shape[1]):
+                    prob_map[i, j] = probs[c, 1] * 255  if probs[c, 1] >= 0.75 else 0
+                    c += 1 #TODO: infer c from i and j
+            cv.imshow("prob", prob_map)
+            #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
+            #plt.show()
 
         self.index += 1
 
 
+    def getRegionNonInterest(self, frame):
+        bbox = cv.selectROI('RONI', frame, False)
+        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        X , y = self.getRGBFeatures2(crop_frame, train=False)
+        return X , y
+
+
+    def getRGBFeatures(self, crop_frame):
+        #extract foreground
+        B = crop_frame[:,:,0][self.mask >= 0] 
+        G = crop_frame[:,:,1][self.mask >= 0] 
+        R = crop_frame[:,:,2][self.mask >= 0] 
         
+        X = np.stack([B,G,R], axis=1)
+        y = np.ones(G.shape[0])
+
+        #extract background
+        B = crop_frame[:,:,0][self.mask == 0] 
+        G = crop_frame[:,:,1][self.mask == 0] 
+        R = crop_frame[:,:,2][self.mask == 0]
+        
+        X = np.concatenate([X, np.stack([B, G, R], axis=1)], axis=0)
+        y = np.concatenate([y, np.zeros(G.shape[0])])
+
+        """fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        r_vals , g_vals , b_vals , c_vals = [] , [] , [] , [] 
+        for i in range(len(G)):
+            r_vals.append(R[i]) 
+            g_vals.append(G[i])
+            b_vals.append(B[i])
+            c_vals.append([R[i], G[i], B[i]])
+        ax.scatter(r_vals, g_vals, b_vals, c=np.array(c_vals)/255)
+        plt.show()"""
+
+        return X , y
+
+    def getRGBFeatures2(self, crop_frame, train=False):
+        """
+        Return RGB values of the 4-neighboorood along with the central pixel's values
+        """
+        X_pos , X_neg , y_pos , y_neg = [] , [] , [] , []
+        for i in range(crop_frame.shape[0]):
+            for j in range(crop_frame.shape[1]):
+                features = crop_frame[i,j].tolist()
+                for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1)]:
+                    neighbor = (i + span[0] , j + span[1])
+                    if (neighbor[0] >= self.prevBbox[1] and neighbor[0] <= self.prevBbox[1] + self.prevBbox[3] and
+                    neighbor[1] >= self.prevBbox[0] and neighbor[1] <= self.prevBbox[0] + self.prevBbox[2]):
+                        features.extend(crop_frame[neighbor[0], neighbor[1]].tolist())
+                    else:
+                        features.extend([-1, -1, -1])
+                        
+                if train and self.mask[i,j] > 0:
+                    y_pos.append(1)
+                    X_pos.append(features)
+                else:
+                    y_neg.append(0)
+                    X_neg.append(features)
+        
+        X = X_pos + X_neg
+        y = y_pos + y_neg
+        X = np.array(X, dtype=np.int16)
+        y = np.array(y, dtype=np.int8)
+        return X , y
 
 """
 from sklearn.decomposition import PCA
