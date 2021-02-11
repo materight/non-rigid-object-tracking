@@ -42,7 +42,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             assert crop_frame.shape[:2] == self.mask.shape
             #X , y = self.getRGBFeatures(crop_frame)
             X , y = self.getRGBFeatures2(crop_frame, train=True)
-            X_nroi , y_nroi = self.getRegionNonInterest(frame)
+            X_nroi , y_nroi = self.getRONI(frame)
 
             X = np.concatenate([X, X_nroi], axis=0)
             y = np.concatenate([y, y_nroi])
@@ -95,8 +95,13 @@ class SemiSupervisedNonRigidMasker(Masker):
         self.index += 1
 
 
-    def getRegionNonInterest(self, frame):
-        bbox = cv.selectROI('RONI', frame, False)
+    def getRONI(self, frame):
+        """
+        Select Region of Non-Interest (area that surely belongs to the background). 
+        Augment the dataset of feature vector with more negative (background) samples, to increase (maybe) the discriminative power of the 
+        classifier
+        """
+        bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         X , y = self.getRGBFeatures2(crop_frame, train=False)
         return X , y
@@ -132,7 +137,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         return X , y
 
-    def getRGBFeatures2(self, crop_frame, train=False):
+    def getRGBFeaturesWithNeighbors(self, crop_frame, train=False):
         """
         Return RGB values of the 4-neighboorood along with the central pixel's values
         """
