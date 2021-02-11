@@ -8,16 +8,34 @@ class BackgroundSubtractorMasker(Masker):
     def __init__(self, poly_roi, **args):
         Masker.__init__(self, **args)
 
-        self.subtractor = cv.createBackgroundSubtractorKNN(detectShadows=False)
-        # self.subtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
+        self.kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+
+        self.subType = 'KNN'
+        if self.subType == 'KNN':
+            self.subtractor = cv.createBackgroundSubtractorKNN(detectShadows=False)
+        elif self.subType == 'GMG':
+            self.subtractor = cv.bgsegm.createBackgroundSubtractorGMG()
+        elif self.subType == 'MOG2':
+            self.subtractor = cv.createBackgroundSubtractorMOG2(detectShadows=False)
+        elif self.subType == 'GSOC':
+            self.subtractor = cv.bgsegm.createBackgroundSubtractorGSOC()
+        elif self.subType == 'LSBP':
+            self.subtractor = cv.bgsegm.createBackgroundSubtractorLSBP()
 
     def update(self, bbox, frame, color):
-        BG_THRESHOLD = 5
+        BG_THRESHOLD = 1
 
         # print([self.subtractor.getkNNSamples(), self.subtractor.getNSamples(), self.subtractor.getShadowThreshold(), self.subtractor.getShadowValue(), self.subtractor.getDist2Threshold(), self.subtractor.getHistory()])
 
         # Compute foreground mask
         fgMask = self.subtractor.apply(frame)
+
+        # Apply erosion followed by dilation to remove noise
+        fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
+
+        # fgMask = cv.morphologyEx(fgMask, cv.MORPH_GRADIENT, self.kernel) # To detect the contours instead of the region
+
+        # cv.imshow('Background-Mask', fgMask)
 
         # Set foreground player to red and mantain background pixels colors
         coloredMask = cv.cvtColor(fgMask, cv.COLOR_GRAY2RGB)
