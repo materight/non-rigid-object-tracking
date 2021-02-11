@@ -85,7 +85,7 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
@@ -146,7 +146,7 @@ if MANUAL_ROI_SELECTION:
         cv.namedWindow('ROI')
         cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
         print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
-        print("[INFO] Press ‘S’ to determine the selection area and save it")
+        print("[INFO] Press ENTER to determine the selection area and save it")
         print("[INFO] Press q or ESC to quit")
     while True:
         if POLYNOMIAL_ROI:
@@ -184,7 +184,7 @@ if MANUAL_ROI_SELECTION:
         if (key == ord('q')):  # q is pressed
             cv.destroyWindow('ROI')
             break
-        if POLYNOMIAL_ROI and key == ord("s"):
+        if POLYNOMIAL_ROI and key == ord("\r"): 
             print("[INFO] ROI coordinates:", pts)
             if len(pts) >= 3:
                 # self.poly_roi.append(pts[0])
@@ -201,9 +201,10 @@ else:
 
     Example poly_roi for clip3.mp4
     [(735, 499), (747, 512), (759, 528), (762, 547), (773, 569), (768, 572), (753, 551), (747, 575), (738, 575), (739, 533), (731, 527), (730, 504)]
+    [(952, 443), (955, 452), (957, 467), (957, 483), (963, 494), (962, 504), (956, 507), (946, 492), (940, 507), (930, 505), (930, 495), (935, 483), (938, 469), (938, 458), (943, 440)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(736, 498), (741, 505), (749, 507), (754, 522), (756, 535), (758, 547), (764, 556), (770, 566), (770, 572), (765, 569), (760, 559), (755, 552), (750, 556),(748, 565), (748, 571), (746, 575), (740, 573), (738, 567), (742, 564), (742, 557), (743, 550), (744, 540), (742, 534), (740, 529), (736, 529), (732, 528), (735, 527), (735, 521), (736, 515), (734, 510), (732, 507), (731, 502)]
+        pts = [(952, 443), (955, 452), (957, 467), (957, 483), (963, 494), (962, 504), (956, 507), (946, 492), (940, 507), (930, 505), (930, 495), (935, 483), (938, 469), (938, 458), (943, 440)]
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -258,8 +259,8 @@ for i, bbox in enumerate(bboxes):
 # Save and visualize the chosen bounding box and its point used for homography
 cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
 cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-cv.namedWindow('Tracking', cv.WINDOW_NORMAL)
-cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
+cv.namedWindow('Tracking')
+#cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
 cv.imshow('Tracking', smallFrame)
 cv.waitKey(0)
 
