@@ -14,6 +14,8 @@ class BackgroundSubtractorMasker(Masker):
     def update(self, bbox, frame, color):
         BG_THRESHOLD = 5
 
+        # print([self.subtractor.getkNNSamples(), self.subtractor.getNSamples(), self.subtractor.getShadowThreshold(), self.subtractor.getShadowValue(), self.subtractor.getDist2Threshold(), self.subtractor.getHistory()])
+
         # Compute foreground mask
         fgMask = self.subtractor.apply(frame)
 
@@ -24,3 +26,11 @@ class BackgroundSubtractorMasker(Masker):
 
         # Show results
         frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = coloredMask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+
+    def setParams(self, k=2, N=7, shadow_threshold=0.5, shadow_value=127, dist2thresh=400.0, history=500):
+        self.subtractor.setkNNSamples(k)
+        self.subtractor.setNSamples(N)
+        self.subtractor.setShadowThreshold(shadow_threshold)
+        self.subtractor.setShadowValue(shadow_value)
+        self.subtractor.setDist2Threshold(dist2thresh)
+        self.subtractor.setHistory(history)
