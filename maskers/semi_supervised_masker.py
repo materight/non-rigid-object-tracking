@@ -8,6 +8,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
 from .masker import Masker
@@ -41,7 +42,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         
             assert crop_frame.shape[:2] == self.mask.shape
             #X , y = self.getRGBFeatures(crop_frame)
-            X , y = self.getRGBFeatures2(crop_frame, train=True)
+            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, train=True)
             X_nroi , y_nroi = self.getRONI(frame)
 
             X = np.concatenate([X, X_nroi], axis=0)
@@ -50,7 +51,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             k = 5
             self.scaler = StandardScaler()
             X = self.scaler.fit_transform(X)
-            self.knn = KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.knn = RandomForestClassifier(random_state=42).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
             f1 = round(f1_score(y, y_pred), 2)
@@ -79,7 +80,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             plt.show()
         else:
             crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-            X , _ = self.getRGBFeatures2(crop_frame, train=False)
+            X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, train=False)
             X = self.scaler.transform(X)
             probs = self.knn.predict_proba(X)
             prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
@@ -103,7 +104,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
         bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y = self.getRGBFeatures2(crop_frame, train=False)
+        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, train=False)
         return X , y
 
 

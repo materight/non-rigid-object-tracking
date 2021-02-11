@@ -7,6 +7,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
 from .masker import Masker
@@ -21,7 +22,7 @@ class SparseNonRigidMasker(Masker):
         self.update_mask = update_mask
         self.poly_roi = poly_roi
 
-        self.use_classification = False #to enable/disable the classification of foreground/background pixels/features
+        self.use_classification = True #to enable/disable the classification of foreground/background pixels/features
 
         self.des_prev = None
         self.mask = None
@@ -38,20 +39,21 @@ class SparseNonRigidMasker(Masker):
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
     def update(self, bbox, frame, color):
-        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        crop_frame = frame[bbox[1]-50:bbox[1] + bbox[3]+50, bbox[0]-50:bbox[0] + bbox[2]+50]
 
         if self.c == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
             kp, des = self.orb.detectAndCompute(crop_frame, mask=self.mask)
 
             if self.use_classification:
-                X , y , _ , _ = self.getRGBFeatures3(crop_frame, train=True)
-                X_nroi , y_nroi = self.getRegionNonInterest(frame)
-
+                X , y , _ , _ = self.getFeatureVector(crop_frame, train=True)
+                X_nroi , y_nroi = self.getRONI(frame)
+                print(X)
                 X = np.concatenate([X, X_nroi], axis=0)
                 y = np.concatenate([y, y_nroi])
+                print(X)
 
-                self.knn = KNeighborsClassifier(n_neighbors=5, weights='distance').fit(X, y)
+                self.knn = RandomForestClassifier(random_state=42).fit(X,y) #KNeighborsClassifier(n_neighbors=5, weights='distance').fit(X, y)
                 y_pred = self.knn.predict(X)
                 f1 = round(f1_score(y, y_pred), 2)
                 print("F1 score classifier = ", f1)
@@ -123,7 +125,7 @@ class SparseNonRigidMasker(Masker):
         """
         bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y , _ , _ = self.getRGBFeatures3(crop_frame, train=False)
+        X , y , _ , _ = self.getFeatureVector(crop_frame, train=False)
         return X , y
 
     def getFeatureVector(self, crop_frame, train=False):
