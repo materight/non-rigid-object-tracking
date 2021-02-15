@@ -21,7 +21,7 @@ class OpticalFlowMasker(Masker):
         self.prevFrame = grayFrame
         self.index = 0
 
-    def update(self, bbox, frame, color):
+    def update(self, bbox, frame, mask, color):
         self.index += 1
         grayFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
@@ -33,9 +33,9 @@ class OpticalFlowMasker(Masker):
 
         # Recompute tracked points every 10 frames
         if self.index % 10 == 0:
-            mask = np.zeros_like(grayFrame)
-            mask[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])] = 255
-            self.featurePoints = cv.goodFeaturesToTrack(grayFrame, mask=mask, maxCorners=500, qualityLevel=0.2, minDistance=2, blockSize=7)
+            trackingMask = np.zeros_like(grayFrame)
+            trackingMask[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])] = 255
+            self.featurePoints = cv.goodFeaturesToTrack(grayFrame, mask=trackingMask, maxCorners=500, qualityLevel=0.2, minDistance=2, blockSize=7)
 
         # Draw new tracked points
         for point in self.featurePoints:

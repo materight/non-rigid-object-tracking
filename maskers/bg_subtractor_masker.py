@@ -22,7 +22,7 @@ class BackgroundSubtractorMasker(Masker):
         elif self.subType == 'LSBP':
             self.subtractor = cv.bgsegm.createBackgroundSubtractorLSBP()
 
-    def update(self, bbox, frame, color):
+    def update(self, bbox, frame, mask, color):
         BG_THRESHOLD = 10
 
         # print([self.subtractor.getkNNSamples(), self.subtractor.getNSamples(), self.subtractor.getShadowThreshold(), self.subtractor.getShadowValue(), self.subtractor.getDist2Threshold(), self.subtractor.getHistory()])
@@ -42,6 +42,7 @@ class BackgroundSubtractorMasker(Masker):
         
         # Set foreground player to red and mantain background pixels colors
         frame[(fgMask > 0)] = (0, 0, 255)
+        mask[(fgMask > 0)] = 255
 
         # Show results
         # cv.drawContours(frame, contours, -1, (0, 0, 255), 1)

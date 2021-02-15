@@ -13,6 +13,7 @@ import time
 import colorutils
 from kalman_filter import KalmanFilter
 from maskers import getMaskerByName
+from benchmark import computeBenchmark
 
 
 def createTracker(trackerType):
@@ -274,17 +275,20 @@ if SHOW_HOMOGRAPHY:
 
 
 
-
+benchmarkDist = []
 start = time.time()
 index = 1
 cap = cv.VideoCapture(loadeddict.get('input_video'))  # added by Steve to feed the first frame at the first iteration
+cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('input_truth') is not None else None
+truth = None
 while (1):
     if index > 50:
         ok, frame = cap.read()
+        _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
-        maskedFrame = np.zeros(smallFrame.shape, dtype=np.uint8)
-
+        truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
+        maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
 
         # Update position of the bounding box
@@ -334,7 +338,11 @@ while (1):
                     histo[i] = hist_2
                 # RE-INITIALIZATION END
 
-                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, color=colors[i])
+                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+                
+                # Compute benchmark w.r.t. ground truth
+                if truthFrame is not None:
+                    benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
 
                 if DEBUG:
                     cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
@@ -346,9 +354,6 @@ while (1):
 
                 cv.circle(img, tracking_point_new, 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
-
-                # Compute masked frame
-                maskedFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]] = [255, 255, 255]
 
                 # Show results
                 cv.imshow('Tracking', smallFrame)
@@ -367,7 +372,7 @@ while (1):
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
-cv.waitKey(0)
+# cv.waitKey(0)
 out.release()
 out_mask.release()
 points.release()
@@ -375,6 +380,12 @@ cv.destroyAllWindows()
 end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
+# Show benchmark
+plt.plot(benchmarkDist)
+plt.xlabel("Number of Frame")
+plt.ylabel("Error of Center")
+plt.tight_layout()
+plt.show()
 
 #plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
 #plt.show()

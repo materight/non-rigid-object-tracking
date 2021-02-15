@@ -33,7 +33,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             self.mask = np.zeros([self.prevBbox[3], self.prevBbox[2]], dtype=np.uint8)
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
-    def update(self, bbox, frame, color):
+    def update(self, bbox, frame, mask, color):
         """
         Requires the very first frame as input here
         """
