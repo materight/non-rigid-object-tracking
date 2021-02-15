@@ -23,27 +23,28 @@ class BackgroundSubtractorMasker(Masker):
             self.subtractor = cv.bgsegm.createBackgroundSubtractorLSBP()
 
     def update(self, bbox, frame, color):
-        BG_THRESHOLD = 1
+        BG_THRESHOLD = 10
 
         # print([self.subtractor.getkNNSamples(), self.subtractor.getNSamples(), self.subtractor.getShadowThreshold(), self.subtractor.getShadowValue(), self.subtractor.getDist2Threshold(), self.subtractor.getHistory()])
 
         # Compute foreground mask
         fgMask = self.subtractor.apply(frame)
 
-        # Apply erosion followed by dilation to remove noise
-        fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
-
-        # fgMask = cv.morphologyEx(fgMask, cv.MORPH_GRADIENT, self.kernel) # To detect the contours instead of the region
-
         # cv.imshow('Background-Mask', fgMask)
 
+        # Apply erosion followed by dilation to remove noise, and extract contours
+        fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
+
+        # Extract mask in polygon and apply threshold
+        m = np.zeros_like(fgMask)
+        m[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = fgMask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        _, fgMask = cv.threshold(m, BG_THRESHOLD, 255, cv.THRESH_BINARY)
+        
         # Set foreground player to red and mantain background pixels colors
-        coloredMask = cv.cvtColor(fgMask, cv.COLOR_GRAY2RGB)
-        coloredMask[fgMask >= BG_THRESHOLD] = (0, 0, 255)
-        coloredMask[fgMask < BG_THRESHOLD] = frame[fgMask < BG_THRESHOLD]
+        frame[(fgMask > 0)] = (0, 0, 255)
 
         # Show results
-        frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = coloredMask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        # cv.drawContours(frame, contours, -1, (0, 0, 255), 1)
 
     def setParams(self, k=2, N=7, shadow_threshold=0.5, shadow_value=127, dist2thresh=400.0, history=500):
         self.subtractor.setkNNSamples(k)
