@@ -37,6 +37,10 @@ class OpticalFlowMasker(Masker):
             trackingMask[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])] = 255
             self.featurePoints = cv.goodFeaturesToTrack(grayFrame, mask=trackingMask, maxCorners=500, qualityLevel=0.2, minDistance=2, blockSize=7)
 
+        # Compute convex hull of points and set mask
+        convexHull = cv.convexHull(self.featurePoints)
+        cv.fillPoly(mask, np.array([convexHull], dtype=np.int32), 255)
+        
         # Draw new tracked points
         for point in self.featurePoints:
             x, y = point.ravel()

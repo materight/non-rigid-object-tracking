@@ -9,4 +9,4 @@ class RigidMasker(Masker):
         Masker.__init__(self, **args)
 
     def update(self, bbox, frame, mask, color):
-        pass
+        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = 255
