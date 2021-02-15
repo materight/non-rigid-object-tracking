@@ -86,7 +86,7 @@ DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = True
+POLYNOMIAL_ROI = False
 
 WINDOW_HEIGHT = 700
 
@@ -337,7 +337,7 @@ while (1):
                 maskers[i].update(bbox=bbox_new_t, frame=smallFrame, color=colors[i])
 
                 if DEBUG:
-                    cv.rectangle(smallFrame, point1_k, point1_k, colors[i], 1, 1)
+                    cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                     cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
 
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
