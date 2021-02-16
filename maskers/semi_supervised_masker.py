@@ -11,10 +11,6 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
-from skimage import data, segmentation
-from skimage.future import graph
-from .ncut import cluster, ncut_graph_matrix
-
 from .masker import Masker
 
 
@@ -51,7 +47,6 @@ class SemiSupervisedNonRigidMasker(Masker):
 
             X = np.concatenate([X, X_nroi], axis=0)
             y = np.concatenate([y, y_nroi])
-            print(np.unique(y, return_counts=True))
 
             k = 5
             self.scaler = StandardScaler()
@@ -62,7 +57,6 @@ class SemiSupervisedNonRigidMasker(Masker):
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
             f1 = round(f1_score(y, y_pred), 2)
-            print(np.unique(y, return_counts=True))
             print("F1 score classifier = ", f1)
 
             prob_map = np.zeros_like(self.mask, dtype=np.int16)
@@ -85,12 +79,11 @@ class SemiSupervisedNonRigidMasker(Masker):
 
             plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             plt.show()
-        elif c == 170:
+        elif 0: #c == 170: REINIT THE CLASSIFIER. TO BE COMPLETED
             self.defineNewMask(bbox, frame)
             
             crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
             X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=True)
-            
             
             X_nroi , y_nroi = self.getRONI(frame)
             print(np.unique(y_nroi, return_counts=True))
@@ -129,15 +122,17 @@ class SemiSupervisedNonRigidMasker(Masker):
         else:
             crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
             X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
-            X = X / 255 #self.scaler.transform(X)
+            X = X / 255 
+            
             probs = self.knn.predict_proba(X)
             prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
             c = 0
             for i in range(prob_map.shape[0]):
                 for j in range(prob_map.shape[1]):
-                    prob_map[i, j] = probs[c, 1] * 255  if probs[c, 1] >= 0.6 else 0
+                    prob_map[i, j] = 255  if probs[c, 1] >= 0.6 else 0
                     c += 1 #TODO: infer c from i and j
             cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
+            mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = prob_map[:,:,0]
             #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             #plt.show()
 

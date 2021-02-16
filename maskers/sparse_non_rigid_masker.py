@@ -39,7 +39,8 @@ class SparseNonRigidMasker(Masker):
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
     def update(self, bbox, frame, mask, color):
-        crop_frame = frame[bbox[1]-50:bbox[1] + bbox[3]+50, bbox[0]-50:bbox[0] + bbox[2]+50]
+        #crop_frame = frame[bbox[1]-20:bbox[1] + bbox[3]+20, bbox[0]-20:bbox[0] + bbox[2]+20]
+        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
         if self.c == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
@@ -66,11 +67,13 @@ class SparseNonRigidMasker(Masker):
                 kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
         self.c += 1
 
+        cv.waitKey(100)
+
         if des is None:
             print("ZERO")
 
         if not self.des_prev is None:
-            matches = self.bf.match(np.array(self.des_prev), des)
+            matches = self.bf.match(self.des_prev, des)
             self.distances += [m.distance for m in matches]
             matches_indexes = [m.trainIdx for m in matches]
             kp_matched = np.array([p.pt for p in kp], dtype=np.int)[matches_indexes]            
@@ -87,10 +90,12 @@ class SparseNonRigidMasker(Masker):
             kp_matched += np.array([bbox[0], bbox[1]])
             hull = cv.convexHull(kp_matched)  # TODO: instead of recomputing convert from the previous hull
             cv.drawContours(frame, [hull], -1, color, 2)
+            cv.fillPoly(mask, np.array([hull], dtype=np.int32), 255)
         else:
             matches_indexes = None
 
-        self.des_prev, self.kp_prev = self.filterFeaturesByMask(kps, dess, matches_indexes)
+
+        self.des_prev, self.kp_prev = self.filterFeaturesByMask(kp, des, matches_indexes)
         self.crop_frame_prev = crop_frame
 
 
