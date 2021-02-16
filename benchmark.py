@@ -2,6 +2,10 @@ import cv2 as cv
 import numpy as np
 
 def computeBenchmark(mask, truth):
+    """
+    Compute the Euclidean distance between the center of mass of the two masks (predicted vs ground truth).
+    Evaluation metric proposed by https://link.springer.com/article/10.1007/s11042-016-3563-3
+    """
     mm = cv.moments(mask)
     tm = cv.moments(truth)
 
