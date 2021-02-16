@@ -22,7 +22,7 @@ class SparseNonRigidMasker(Masker):
         self.update_mask = update_mask
         self.poly_roi = poly_roi
 
-        self.use_classification = True #to enable/disable the classification of foreground/background pixels/features
+        self.use_classification = True #to enable/disable the classification of foreground/background features
 
         self.des_prev = None
         self.mask = None
@@ -39,30 +39,29 @@ class SparseNonRigidMasker(Masker):
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
     def update(self, bbox, frame, color):
-        crop_frame = frame[bbox[1]-50:bbox[1] + bbox[3]+50, bbox[0]-50:bbox[0] + bbox[2]+50]
+        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
         if self.c == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
             kp, des = self.orb.detectAndCompute(crop_frame, mask=self.mask)
+            kps , dess = kp , des
 
             if self.use_classification:
                 X , y , _ , _ = self.getFeatureVector(crop_frame, train=True)
                 X_nroi , y_nroi = self.getRONI(frame)
-                print(X)
                 X = np.concatenate([X, X_nroi], axis=0)
                 y = np.concatenate([y, y_nroi])
-                print(X)
 
-                self.knn = RandomForestClassifier(random_state=42).fit(X,y) #KNeighborsClassifier(n_neighbors=5, weights='distance').fit(X, y)
+                self.knn = RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=5, weights='distance').fit(X, y)
                 y_pred = self.knn.predict(X)
                 f1 = round(f1_score(y, y_pred), 2)
                 print("F1 score classifier = ", f1)
         else:
             if self.use_classification:
-                X , y , kp , des = self.getFeatureVector(crop_frame, train=False)
+                X , y , kps , dess = self.getFeatureVector(crop_frame, train=False)
                 y_pred = np.array(self.knn.predict(X))
-                kp = kp[y_pred == 1]
-                des = des[y_pred == 1]
+                kp = kps[y_pred == 1]
+                des = dess[y_pred == 1]
             else:
                 kp, des = self.orb.detectAndCompute(crop_frame, mask=None)
         self.c += 1
@@ -91,7 +90,7 @@ class SparseNonRigidMasker(Masker):
         else:
             matches_indexes = None
 
-        self.des_prev, self.kp_prev = self.filterFeaturesByMask(kp, des, matches_indexes)
+        self.des_prev, self.kp_prev = self.filterFeaturesByMask(kps, dess, matches_indexes)
         self.crop_frame_prev = crop_frame
 
 
