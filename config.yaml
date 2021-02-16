@@ -1,6 +1,6 @@
 tracker: CSRT
 tau: 0.3
-resize_factor: 1
+resize_factor: 0.5
 
 out_players: output/Tracking/tracked_players.avi
 out_players_mask: output/Tracking/tracked_players_mask.avi
@@ -9,8 +9,9 @@ out_bboxes: output/Tracking/bounding_box.png
 out_players_data: output/Tracking/data_players.txt
 out_tracking_results: output/Tracking/results.png
 
-input_video: output/Video/dino.mp4
+input_video: output/Video/SegTrack2/Video/hummingbird.mp4
+input_truth: output/Video/SegTrack2/Truth/hummingbird.mp4 # Can be null
 input_image_homography: sources/Map/basket_field.jpg
 
-masker: Rigid
+masker: BgSub
 update_mask: False

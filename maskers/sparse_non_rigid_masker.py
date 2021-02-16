@@ -38,8 +38,8 @@ class SparseNonRigidMasker(Masker):
             self.mask = np.zeros([self.prevBbox[3], self.prevBbox[2]], dtype=np.uint8)
             cv.fillPoly(self.mask, np.array([self.poly_roi], dtype=np.int32), 255)
 
-    def update(self, bbox, frame, color):
-        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+    def update(self, bbox, frame, mask, color):
+        crop_frame = frame[bbox[1]-50:bbox[1] + bbox[3]+50, bbox[0]-50:bbox[0] + bbox[2]+50]
 
         if self.c == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
