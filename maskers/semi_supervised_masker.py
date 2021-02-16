@@ -4,12 +4,16 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
+
+from skimage import data, segmentation
+from skimage.future import graph
+from .ncut import cluster, ncut_graph_matrix
 
 from .masker import Masker
 
@@ -40,21 +44,25 @@ class SemiSupervisedNonRigidMasker(Masker):
         if self.index == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
         
-            assert crop_frame.shape[:2] == self.mask.shape
+            assert (self.poly_roi is None) or (crop_frame.shape[:2] == self.mask.shape)
             #X , y = self.getRGBFeatures(crop_frame)
-            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, train=True)
+            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=True)
             X_nroi , y_nroi = self.getRONI(frame)
 
             X = np.concatenate([X, X_nroi], axis=0)
             y = np.concatenate([y, y_nroi])
+            print(np.unique(y, return_counts=True))
 
             k = 5
             self.scaler = StandardScaler()
-            X = self.scaler.fit_transform(X)
-            self.knn = RandomForestClassifier(random_state=42).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            X = X/255 #self.scaler.fit_transform(X)
+            self.knn = RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.train_X = X; self.train_y = y
+            print(self.knn.outlier_label_)
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
             f1 = round(f1_score(y, y_pred), 2)
+            print(np.unique(y, return_counts=True))
             print("F1 score classifier = ", f1)
 
             prob_map = np.zeros_like(self.mask, dtype=np.int16)
@@ -68,7 +76,6 @@ class SemiSupervisedNonRigidMasker(Masker):
             for i , idx in enumerate(mask_deactive_idx):
                 prob_map[idx[0], idx[1]] = probs[start + i, 1]  * 255
 
-
             """fig = plt.figure()
             #ax = fig.add_subplot(111, projection='3d')
             #ax.scatter(X[y == 1, 0], X[y == 1, 1], X[y == 1, 2])
@@ -78,22 +85,129 @@ class SemiSupervisedNonRigidMasker(Masker):
 
             plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             plt.show()
+        elif c == 170:
+            self.defineNewMask(bbox, frame)
+            
+            crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=True)
+            
+            
+            X_nroi , y_nroi = self.getRONI(frame)
+            print(np.unique(y_nroi, return_counts=True))
+
+            X = np.concatenate([self.train_X[self.train_y==1], X, X_nroi], axis=0) / 255
+            y = np.concatenate([self.train_y[self.train_y==1], y, y_nroi])     
+            print(np.unique(y, return_counts=True))
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(X[y == 1, 0], X[y == 1, 1], X[y == 1, 2])
+            ax.scatter(X[y == 0, 0], X[y == 0, 1], X[y == 0, 2])
+            #ax.set_title('KNN F1 = {} with K={}'.format(f1, k))
+            plt.show()       
+            
+            self.knn = RadiusNeighborsClassifier(n_jobs=4, radius=0.15, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            print(self.knn.outlier_label_)  
+            y_pred = self.knn.predict(X)
+            probs = self.knn.predict_proba(X)
+            f1 = round(f1_score(y, y_pred), 2)
+            print("F1 score classifier updated = ", f1)
+
+            prob_map = np.zeros_like(self.mask, dtype=np.int16)
+            mask_active_idx = np.argwhere(self.mask > 0)
+            mask_deactive_idx = np.argwhere(self.mask == 0)
+
+            for i , idx in enumerate(mask_active_idx):
+                prob_map[idx[0], idx[1]] = probs[i, 1] * 255  
+
+            start = sum(y==1)
+            for i , idx in enumerate(mask_deactive_idx):
+                prob_map[idx[0], idx[1]] = probs[start + i, 1]  * 255 
+
+            plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
+            plt.show()
         else:
             crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-            X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, train=False)
-            X = self.scaler.transform(X)
+            X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
+            X = X / 255 #self.scaler.transform(X)
             probs = self.knn.predict_proba(X)
             prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
             c = 0
             for i in range(prob_map.shape[0]):
                 for j in range(prob_map.shape[1]):
-                    prob_map[i, j] = probs[c, 1] * 255  if probs[c, 1] >= 0.75 else 0
+                    prob_map[i, j] = probs[c, 1] * 255  if probs[c, 1] >= 0.6 else 0
                     c += 1 #TODO: infer c from i and j
-            cv.imshow("prob", prob_map)
+            cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
             #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             #plt.show()
 
         self.index += 1
+
+
+
+    def drawPolyROI(self, event, x, y, flags, params):
+        img2 = params["image"].copy()
+
+        if event == cv.EVENT_LBUTTONDOWN:  # Left click, select point
+            self.pts.append((x, y))
+        if event == cv.EVENT_RBUTTONDOWN:  # Right click to cancel the last selected point
+            self.pts.pop()
+        if event == cv.EVENT_MBUTTONDOWN:  # Central button to display the polygonal mask
+            mask = np.zeros(img2.shape, np.uint8)
+            points = np.array(self.pts, np.int32)
+            points = points.reshape((-1, 1, 2))
+            mask = cv.polylines(mask, [points], True, (255, 255, 255), 2)
+            mask2 = cv.fillPoly(mask.copy(), [points], (255, 255, 255))  # for ROI
+            # Mask3 = cv.fillPoly(mask.copy(), [points], (0, 255, 0)) # for displaying images on the desktop
+
+            show_image = cv.addWeighted(src1=img2, alpha=params["alpha"], src2=mask2, beta=1-params["alpha"], gamma=0)
+            cv.putText(show_image, 'PRESS SPACE TO CONTINUE THE SELECTION...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+            cv.imshow("ROI inspection", show_image)
+            cv.waitKey(0)
+            cv.destroyWindow("ROI inspection")
+        if len(self.pts) > 0:  # Draw the last point in pts
+            cv.circle(img2, self.pts[-1], 3, (0, 0, 255), -1)
+        if len(self.pts) > 1:
+            for i in range(len(self.pts) - 1):
+                cv.circle(img2, self.pts[i], 4, (0, 0, 255), -1)  # x ,y is the coordinates of the mouse click place
+                cv.line(img=img2, pt1=self.pts[i], pt2=self.pts[i + 1], color=(255, 0, 0), thickness=1)
+        cv.imshow('ROI', img2)
+
+
+    def defineNewMask(self, prevBbox, smallFrame):
+        bbox = None
+        self.pts = []
+        cv.namedWindow('ROI')
+        cv.setMouseCallback('ROI', self.drawPolyROI, {"image": smallFrame, "alpha": 0.6})
+        while True:
+            key = cv.waitKey(0) & 0xFF
+            if (key == ord('q')):  # q is pressed
+                cv.destroyWindow('ROI')
+                break
+            if key == ord("\r"): 
+                print("[INFO] ROI coordinates:", self.pts)
+                if len(self.pts) >= 3:
+                    poly_roi = self.pts
+                else:
+                    print("Not enough points selected")
+
+        for i in range(len(poly_roi)):  # adapt coordinates
+            x = poly_roi[i][0]
+            y = poly_roi[i][1]
+            poly_roi[i] = (x - prevBbox[0], y - prevBbox[1])
+
+        self.mask = np.zeros([prevBbox[3], prevBbox[2]], dtype=np.uint8)
+        cv.fillPoly(self.mask, np.array([poly_roi], dtype=np.int32), 255)
+
+        """mask2 = np.zeros_like(smallFrame)
+        bbox = prevBbox
+        mask2[prevBbox[1]:prevBbox[1] + prevBbox[3], bbox[0]:bbox[0] + bbox[2],0] = self.mask
+        mask2[prevBbox[1]:prevBbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2],1] = self.mask
+        mask2[prevBbox[1]:prevBbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2],2] = self.mask
+        show_image = cv.addWeighted(src1=smallFrame, alpha=0.7, src2=mask2, beta=0.3, gamma=0)
+        cv.imshow('Test features', show_image)
+        cv.waitKey(0)"""
+
 
 
     def getRONI(self, frame):
@@ -104,7 +218,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
         bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, train=False)
+        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
         return X , y
 
 
@@ -138,18 +252,21 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         return X , y
 
-    def getRGBFeaturesWithNeighbors(self, crop_frame, train=False):
+    def getRGBFeaturesWithNeighbors(self, crop_frame, bbox, train=False):
         """
         Return RGB values of the 4-neighboorood along with the central pixel's values
         """
+        #crop_frame = cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB)
         X_pos , X_neg , y_pos , y_neg = [] , [] , [] , []
         for i in range(crop_frame.shape[0]):
             for j in range(crop_frame.shape[1]):
                 features = crop_frame[i,j].tolist()
-                for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1)]:
+                for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1),
+                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2),
+                             (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3) , (-3,-3), (+3,-3), (-3,+3)]:
                     neighbor = (i + span[0] , j + span[1])
-                    if (neighbor[0] >= self.prevBbox[1] and neighbor[0] <= self.prevBbox[1] + self.prevBbox[3] and
-                    neighbor[1] >= self.prevBbox[0] and neighbor[1] <= self.prevBbox[0] + self.prevBbox[2]):
+                    if (neighbor[0] >= bbox[1] and neighbor[0] <= bbox[1] + bbox[3] and
+                    neighbor[1] >= bbox[0] and neighbor[1] <= bbox[0] + bbox[2]):
                         features.extend(crop_frame[neighbor[0], neighbor[1]].tolist())
                     else:
                         features.extend([-1, -1, -1])
