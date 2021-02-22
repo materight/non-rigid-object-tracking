@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
@@ -50,7 +50,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
             k = 5
             self.scaler = StandardScaler()
-            X = X/255 #self.scaler.fit_transform(X)
+            X = X / 255 
             self.knn = RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             self.train_X = X; self.train_y = y
             print(self.knn.outlier_label_)
@@ -123,7 +123,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
             X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
             X = X / 255 
-            
+
             probs = self.knn.predict_proba(X)
             prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
             c = 0
