@@ -1,18 +1,17 @@
 import ctypes
 import pathlib
 import numpy as np
-import cv2 as cv
+
 
 # Load the shared library into ctypes
-libname = pathlib.Path().absolute() / "lib" / "libprim.so"
+libname = pathlib.Path().absolute() / "prim" / "lib" / "libprim.so"
 lib = ctypes.CDLL(libname)
 rp_fun = lib.rp
 
-alpha = np.genfromtxt('../configs/alpha.dat', delimiter=',')
+alpha = np.genfromtxt('configs/alpha.dat', delimiter=',')
 
 if not alpha.flags['C_CONTIGUOUS']:
 	alpha = np.ascontiguousarray(alpha)
-
 
 def RP(img, n_proposals):
 	if not img.flags['C_CONTIGUOUS']: img = np.ascontiguousarray(img)
@@ -27,12 +26,3 @@ def RP(img, n_proposals):
 	return out
 
 
-img = cv.imread('frog.png')
-res = RP(img, 1000)
-
-for i in range(res.shape[0]):
-	masked = img.copy()
-	masked[~res[i]] = [0, 0, 0]
-	cv.imshow('image', masked)
-	cv.waitKey(0)
-	cv.destroyAllWindows()
