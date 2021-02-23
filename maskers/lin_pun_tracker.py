@@ -12,7 +12,9 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, jaccard_score
 
-from skimage.segmentation import slic, quickshift, mark_boundaries
+from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
+from skimage.filters import sobel
+from skimage.color import rgb2gray
 
 from .masker import Masker
 
@@ -41,12 +43,19 @@ class LinPauNonRigidTracker(Masker):
 
 
     def update(self, frame):
-        #segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
-        segments_quick = slic(frame)
+        segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
+        #segments_quick = felzenszwalb(frame, scale=100, sigma=0.5, min_size=50)
+        #gradient = sobel(rgb2gray(frame))
+        #segments_quick = watershed(gradient, markers=250, compactness=0.001)
+        #segments_quick = slic(frame)
+        
+        #plt.imshow(segments_quick, cmap='hot')
+        #plt.show()
+        
         prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
 
-        if self.index == 5:
-            return
+        #if self.index == 10:
+        #    return
 
         if self.index == 0:
             labels_foreground = self.getForegroundSegments(segments_quick, self.ground_truth, frame)
@@ -66,49 +75,48 @@ class LinPauNonRigidTracker(Masker):
             for l in labels_foreground:
                 self.prev_target[segments_quick == l] = 255
 
-            plt.imshow(prob_map, cmap='hot')
-            plt.show()
+            #plt.imshow(prob_map, cmap='hot')
+            #plt.show()
         else:
             X , _ = self.extractFeatures(frame, segments_quick, labels_foreground=[])
             probs = self.knn.predict_proba(X)
 
-            for i , label in enumerate(np.unique(segments_quick)):
-                prob_map[segments_quick == label] = probs[i, 1] * 255
+            _ , areas = np.unique(segments_quick, return_counts=True)
+            #for i , label in enumerate(labels)):
+            #    prob_map[segments_quick == label] = probs[i, 1] * 255
+            #plt.imshow(prob_map, cmap='hot')
+            #plt.show()
 
             candidates = self.getCandidatesBBox(frame, segments_quick) 
 
-
-            _ , areas = np.unique(segments_quick, return_counts=True)
             similarity = [] #similarity for every candidate. Eq. (2)
+            motion_weights = [] #Eq. (3)
             for candidate in candidates:
+                #Eq (2)
                 tmp = 0
                 segments = np.unique(candidate)
                 for segment in segments:
                     tmp += np.tan(probs[segment, 1]) * areas[segment]
                 tmp /= len(segments)
-                similarity.append(tmp) #TODO: compute b
-            
-            motion_weights = [] #Eq. (3)
-            for candidate in candidates:
-                candidate_binary = np.zeros_like(candidate, dtype=np.bool)
-                candidate_binary[candidate > 0] = True #create binary candidate from segmented candidate
+                similarity.append(tmp) 
+
+                #Eq (3)
+                candidate_binary = candidate.astype(np.bool)                
                 
                 intersection = np.logical_and(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 union = np.logical_or(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 iou = np.sum(intersection) / np.sum(union)
 
                 center_distance = np.exp(-self.rho * self.computeDistanceFromCenters(candidate, self.prev_target))
-
-                motion_weights.append(iou + center_distance)
+                motion_weights.append(iou + center_distance)            
 
             similarity = np.array(similarity)
             similarity /= max(similarity) #normalize. Equal to compute b in Eq (2)
             motion_weights = np.array(motion_weights)
             best_candidate = np.argmax(similarity * motion_weights)
-            self.prev_target = candidates[best_candidate]
+            self.prev_target = candidates[best_candidate] #.astype(np.bool)
 
             cv.imshow("Best candidate", candidates[best_candidate])
-            print(sum(sum(self.prev_target)))
 
         self.index += 1
 
@@ -159,9 +167,8 @@ class LinPauNonRigidTracker(Masker):
             output_img_proposal_top100 = frame.copy()
             # Draw bounding boxes for top 100 proposals
             for i in range(0, len(boxes)):
-                if i == 30:
-                    top_x, top_y, width, height = boxes[i]
-                    cv.rectangle(output_img_proposal_top100, (top_x, top_y), (top_x + width, top_y + height), (0, 255, 0), 1, cv.LINE_AA)
+                top_x, top_y, width, height = boxes[i]
+                cv.rectangle(output_img_proposal_top100, (top_x, top_y), (top_x + width, top_y + height), (0, 255, 0), 1, cv.LINE_AA)
             cv.imshow("Output_Top_100_Proposals", output_img_proposal_top100)
             #cv.waitKey()
             cv.destroyAllWindows()
@@ -181,19 +188,19 @@ class LinPauNonRigidTracker(Masker):
         #foreground
         for f_label in labels_foreground:
             segment_feature = []
-            segment_mask = np.zeros((frame.shape[0], frame.shape[1]))
-            segment_mask[np.nonzero(segments == f_label)] = 255
+            segment_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.bool)
+            segment_mask[np.nonzero(segments == f_label)] = True
 
             if print_results: fig, axs = plt.subplots(3, 2)
             for e in range(num_level_erosion):
-                if print_results:  axs[e, 0].imshow(segment_mask)
+                if print_results:  axs[e, 0].imshow(segment_mask.astype(np.uint8))
 
-                segment_pixels = frame[segment_mask != 0]
+                segment_pixels = frame[segment_mask == True]
                 hist , edges = np.apply_along_axis(np.histogram, axis=0, arr=segment_pixels, bins=8)
                 hist_normalized = [el / (max(el)+eps) for el in hist]
                 feature_vector = np.ravel([el.tolist() for el in hist_normalized])
                 segment_feature.extend(feature_vector)
-                segment_mask = cv.erode(segment_mask, kernel, iterations = 1)
+                segment_mask = cv.erode(segment_mask.astype(np.uint8), kernel, iterations = 1)
                 
                 if print_results:  axs[e, 1].bar(list(range(24)), feature_vector)
 
@@ -205,16 +212,16 @@ class LinPauNonRigidTracker(Masker):
         #background
         for b_label in np.setdiff1d(np.unique(segments), labels_foreground):
             segment_feature = []
-            segment_mask = np.zeros((frame.shape[0], frame.shape[1]))
-            segment_mask[np.nonzero(segments == b_label)] = 255
+            segment_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.bool)
+            segment_mask[np.nonzero(segments == b_label)] = True
 
             for e in range(num_level_erosion):
-                segment_pixels = frame[segment_mask != 0]
+                segment_pixels = frame[segment_mask == True]
                 hist , edges = np.apply_along_axis(np.histogram, axis=0, arr=segment_pixels, bins=8)
                 hist_normalized = [el / (max(el)+eps) for el in hist]
                 feature_vector = np.ravel([el.tolist() for el in hist_normalized])
                 segment_feature.extend(feature_vector)
-                segment_mask = cv.erode(segment_mask, kernel, iterations = 1)
+                segment_mask = cv.erode(segment_mask.astype(np.uint8), kernel, iterations = 1)
 
             X.append(segment_feature)
             y.append(0)
@@ -242,15 +249,15 @@ class LinPauNonRigidTracker(Masker):
         #test = np.zeros_like(segments, dtype=np.uint8)
         #for i in range(segments.shape[0]):
         #    for j in range(segments.shape[1]):
-        #        test[i,j] = 255 if assignements[segments[i,j]] >= 0.7 else 0 #assignements[segments[i,j]] * 255
+        #        test[i,j] = 255 if assignements.get(segments[i,j], 0) >= 0.7 else 0 #assignements[segments[i,j]] * 255
 
         #show_image = cv.addWeighted(src1=cv.cvtColor(frame, cv.COLOR_BGR2GRAY), alpha=0.1, src2=test, beta=0.9, gamma=0)
         #boundaries = mark_boundaries(show_image, segments)
         #bbox_gt = np.zeros_like(frame)
         #bbox_gt[:,:,2] = ground_truth
         #cv.imshow("Superpixels", boundaries + bbox_gt) 
-        #cv.waitKey()
-        #cv.imshow("Foreground superpixels", show_image)
+        #cv.waitKey(300)
+        ##cv.imshow("Foreground superpixels", show_image)
 
         return np.array(list(assignements.keys()))[np.array(list(assignements.values())) >= 0.7]
 

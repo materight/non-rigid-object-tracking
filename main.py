@@ -86,7 +86,7 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = True
+MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
@@ -205,9 +205,13 @@ else:
     [(952, 443), (955, 452), (957, 467), (957, 483), (963, 494), (962, 504), (956, 507), (946, 492), (940, 507), (930, 505), (930, 495), (935, 483), (938, 469), (938, 458), (943, 440)]
     Example for dino.mp4
     [(187, 21), (193, 21), (198, 24), (200, 37), (207, 28), (213, 23), (222, 21), (232, 24), (237, 26), (239, 35), (237, 44), (239, 52), (246, 61), (253, 63), (247, 71), (235, 63), (229, 61), (223, 59), (220, 65), (217, 72), (214, 78), (209, 77), (207, 74), (212, 67), (210, 58), (204, 54), (198, 53), (190, 52), (191, 46), (190, 38), (190, 30), (184, 26)]
+    Example for frog.mp4
+    [(170, 67), (182, 60), (201, 62), (219, 65), (227, 64), (237, 66), (219, 87), (209, 100), (196, 111), (198, 98), (188, 82), (173, 76)]
+    Example for soldier.mp4
+    [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(952, 443), (955, 452), (957, 467), (957, 483), (963, 494), (962, 504), (956, 507), (946, 492), (940, 507), (930, 505), (930, 495), (935, 483), (938, 469), (938, 458), (943, 440)]
+        pts = [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -279,11 +283,14 @@ if SHOW_HOMOGRAPHY:
 
 benchmarkDist = []
 start = time.time()
-index = 1
+index = 0
 cap = cv.VideoCapture(loadeddict.get('input_video'))  # added by Steve to feed the first frame at the first iteration
 cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('input_truth') is not None else None
 truth = None
 while (1):
+    index += 1
+    if index % 2 == 0:
+        continue
     if index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
@@ -292,6 +299,7 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
+        maskers[i].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -305,64 +313,62 @@ while (1):
             p2_k = kalman_filtersp2[i].estimate(p2_t[0], p2_t[1])
             # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
             vector = np.dot(h, np.transpose([predictedCoords[0][0], predictedCoords[1][0], 1]))
-            if index <= 50:
-                index += 1
-            else:
-                tracking_point_img = (vector[0], vector[1])
-                w = vector[2]
-                tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
-                # Add new position to list of points for the homographed space
-                x_sequences[i].append(tracking_point_new[0])
-                y_sequences[i].append(tracking_point_new[1])
-                # computation of the predicted bounding box
-                point1_k = (int(p1_k[0]), int(p1_k[1]))
-                point2_k = (int(p2_k[0]), int(p2_k[1]))
-                point1_t = (int(p1_t[0]), int(p1_t[1]))
-                point2_t = (int(p2_t[0]), int(p2_t[1]))
+            
+            tracking_point_img = (vector[0], vector[1])
+            w = vector[2]
+            tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
+            # Add new position to list of points for the homographed space
+            x_sequences[i].append(tracking_point_new[0])
+            y_sequences[i].append(tracking_point_new[1])
+            # computation of the predicted bounding box
+            point1_k = (int(p1_k[0]), int(p1_k[1]))
+            point2_k = (int(p2_k[0]), int(p2_k[1]))
+            point1_t = (int(p1_t[0]), int(p1_t[1]))
+            point2_t = (int(p2_t[0]), int(p2_t[1]))
 
-                bbox_new = (int(point1_k[0]), int(point1_k[1]), int(point2_k[0] - point1_k[0]), int(point2_k[1] - point1_k[1]))
-                bbox_new_t = (int(point1_t[0]), int(point1_t[1]), int(point2_t[0] - point1_t[0]), int(point2_t[1] - point1_t[1]))
+            bbox_new = (int(point1_k[0]), int(point1_k[1]), int(point2_k[0] - point1_k[0]), int(point2_k[1] - point1_k[1]))
+            bbox_new_t = (int(point1_t[0]), int(point1_t[1]), int(point2_t[0] - point1_t[0]), int(point2_t[1] - point1_t[1]))
 
-                # RE-INITIALIZATION START
-                crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
-                hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-                intersection = returnIntersection(histo[i], hist_2)
-                if intersection < TAU:
-                    print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
-                    colors[i] = colorutils.pickNewColor(color_names_used)
-                    multiTracker = cv.legacy.MultiTracker_create()
-                    for n, nb in enumerate(boxes):
-                        boxi = (nb[0], nb[1], nb[2], nb[3])
-                        if n == i:
-                            multiTracker.add(createTracker(TRACKER), smallFrame, bbox_new)
-                        else:
-                            multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
-                    histo[i] = hist_2
-                # RE-INITIALIZATION END
+            # RE-INITIALIZATION START
+            crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
+            hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+            intersection = returnIntersection(histo[i], hist_2)
+            if intersection < TAU:
+                print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
+                colors[i] = colorutils.pickNewColor(color_names_used)
+                multiTracker = cv.legacy.MultiTracker_create()
+                for n, nb in enumerate(boxes):
+                    boxi = (nb[0], nb[1], nb[2], nb[3])
+                    if n == i:
+                        multiTracker.add(createTracker(TRACKER), smallFrame, bbox_new)
+                    else:
+                        multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
+                histo[i] = hist_2
+            # RE-INITIALIZATION END
 
-                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
-                
-                # Compute benchmark w.r.t. ground truth
-                if truthFrame is not None:
-                    benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
+            #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+            
+            # Compute benchmark w.r.t. ground truth
+            if truthFrame is not None:
+                benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
 
-                if DEBUG:
-                    cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
-                    cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
+            if DEBUG:
+                cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
+                cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
 
-                cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-                cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
+            cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+            cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+            cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
 
-                cv.circle(img, tracking_point_new, 4, colors[i], -1)
-                points.write(img)  # Save video for position tracking on the basketball diagram
+            cv.circle(img, tracking_point_new, 4, colors[i], -1)
+            points.write(img)  # Save video for position tracking on the basketball diagram
 
-                # Show results
-                cv.imshow('Tracking', smallFrame)
-                if SHOW_MASKS:
-                    cv.imshow('Tracking-Masks', maskedFrame)
-                if SHOW_HOMOGRAPHY:
-                    cv.imshow('Tracking-Homography', img)
+            # Show results
+            cv.imshow('Tracking', smallFrame)
+            if SHOW_MASKS:
+                cv.imshow('Tracking-Masks', maskedFrame)
+            if SHOW_HOMOGRAPHY:
+                cv.imshow('Tracking-Homography', img)
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
