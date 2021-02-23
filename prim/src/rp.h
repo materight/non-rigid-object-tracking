@@ -23,15 +23,9 @@ double Unif01(){
 void RP(const Image& rgbI, double *segmentMask, const Params& params, bool *out){
 
   /*Preprocessing stage*/
+  uint usedSeed = params.rSeedForRun();
+  srand(usedSeed);
   
-  uint usedSeed = -1;
-  if(params.rSeedForRun() != -1){
-    usedSeed = params.rSeedForRun();
-    srand(usedSeed);
-  }else{
-    usedSeed = time(NULL);
-    srand(usedSeed);
-  }
 
   Image I(rgbI.convertToColorspace(params.colorspace()));
   
