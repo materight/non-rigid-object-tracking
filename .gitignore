@@ -1,5 +1,6 @@
 output/*
 sources/*
+prim/lib/*
 
 # Editor directories and files
 .DS_Store
