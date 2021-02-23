@@ -5,7 +5,7 @@ import cv2 as cv
 
 
 # Load the shared library into ctypes
-libname = pathlib.Path().absolute() / "prim" / "lib" / "libprim.so"
+libname = str(pathlib.Path().absolute() / "prim" / "lib" / "libprim.so")
 lib = ctypes.CDLL(libname)
 rp_fun = lib.rp
 
