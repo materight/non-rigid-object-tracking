@@ -34,7 +34,7 @@ class BBox{
 
 class SegImage{
   public:
-    SegImage(const Image& I, const Params::SpParams& spParams);
+    SegImage(const Image& I, double* seg_img_idx, const Params::SpParams& spParams);
     inline uint h() const{return h_;}
     inline uint w() const{return w_;}
     inline uint c() const{return c_;}
@@ -73,13 +73,10 @@ class SegImage{
 
     void ExtractSpInfo();
 
-    uint FindMinValue() const;
-    uint FindMaxValue() const;
-
     SpInfo spInfo_;
 };
 
-SegImage::SegImage(const Image& I, const Params::SpParams& spParams){
+SegImage::SegImage(const Image& I, double* seg_img_idx, const Params::SpParams& spParams){
 
   const std::vector<uint>& dims=I.imgSize();
 
@@ -88,87 +85,48 @@ SegImage::SegImage(const Image& I, const Params::SpParams& spParams){
   w_=dims.at(1);
   c_=dims.at(2);
 
-  rgb pixel={0,0,0};
+  nSps_ = 0;
+  bool externalSegMask = true;
 
-  //Convert to F format
-  image<rgb> im_rgb(w_, h_, true);
-  for(uint i=0; i<h_;i++){
-    for(uint j=0; j<w_;j++){
-      pixel.r=I.at(i,j,0);
-      pixel.g=I.at(i,j,1);
-      pixel.b=I.at(i,j,2);
-      im_rgb.data[i*w_+j]=pixel;
+  if(seg_img_idx == NULL) {
+    rgb pixel={0,0,0};
+
+    externalSegMask = false;
+    //Convert to F format
+    image<rgb> im_rgb(w_, h_, true);
+    for(uint i=0; i<h_;i++){
+      for(uint j=0; j<w_;j++){
+        pixel.r=I.at(i,j,0);
+        pixel.g=I.at(i,j,1);
+        pixel.b=I.at(i,j,2);
+        im_rgb.data[i*w_+j]=pixel;
+      }
     }
+
+    int num_ccs;
+    seg_img_idx = segment_image_index(&im_rgb, spParams.sigma_, spParams.c_, spParams.min_size_, &num_ccs);
+    assert(num_ccs>0);
+    nSps_=num_ccs;
   }
-
-  int num_ccs;
-
-  //image<rgb> * seg_img_rgb = segment_image(&im_rgb, spParams.sigma_, spParams.c_, spParams.min_size_, &num_ccs);
-
-  double * seg_img_idx=segment_image_index(&im_rgb, spParams.sigma_, spParams.c_, spParams.min_size_, &num_ccs);
-
-  assert(num_ccs>0);
-
-  nSps_=num_ccs;
-
   //Convert F to my Image format
   I_.resize(h_,std::vector<uint>(w_,6666));
 
-#ifndef NDEBUG
-  double dummy=0.0;
-#endif
-  for(uint i=0; i<h_;i++){
-    for(uint j=0; j<w_;j++)
+  uint maxValue = 0;
+  for(uint i=0; i<h_; i++){
+    for(uint j=0; j<w_; j++)
     {
-      assert(fabs(modf(seg_img_idx[j*h_+i], &dummy))<5.0E-5 ); 
-      assert(modf(seg_img_idx[j*h_+i], &dummy)>-5.0E-5);
-
-      I_.at(i).at(j)=(uint)seg_img_idx[j*h_+i]-1; //Horizontal indexing! -1 to index to 0 to nSps-1
+      I_.at(i).at(j) = (uint) seg_img_idx[j*h_+i] - (externalSegMask ? 0 : 1);
+      if(I_.at(i).at(j) > maxValue) {
+        maxValue = I_.at(i).at(j);
+      }
     }
   }
 
-  assert(this->FindMinValue()==0);
-  assert(this->FindMaxValue()==(nSps_-1));
+  nSps_ = maxValue + 1;
 
   this->ExtractSpInfo();
 }
 
-
-uint SegImage::FindMaxValue() const{
-
-  uint max=0, cur=0; 
-
-  for(uint i=0;i<h_;i++){
-    for(uint j=0; j<w_;j++){
-      cur=this->at(i,j);
-      assert(cur>=0);
-      if(cur>max){
-        max=cur;
-      }
-    }
-  }
-
-  return max;
-
-}
-
-uint SegImage::FindMinValue() const{
-
-  uint min=UINT_MAX, cur=0; 
-
-  for(uint i=0;i<h_;i++){
-    for(uint j=0; j<w_;j++){
-      cur=this->at(i,j);
-      assert(cur>=0);
-      if(cur<min){
-        min=cur;
-      }
-    }
-  }
-
-  return min;
-
-}
 
 void SegImage::ExtractSpInfo(){
 

@@ -20,7 +20,7 @@ double Unif01(){
   return ((double) rand() / (double) (RAND_MAX+1.0));
 }
 
-void RP(const Image& rgbI, const Params& params, bool *out){
+void RP(const Image& rgbI, double *segmentMask, const Params& params, bool *out){
 
   /*Preprocessing stage*/
   
@@ -34,8 +34,8 @@ void RP(const Image& rgbI, const Params& params, bool *out){
   }
 
   Image I(rgbI.convertToColorspace(params.colorspace()));
-
-  SegImage segImg(I, params.spParams());
+  
+  SegImage segImg(I, segmentMask, params.spParams());
 
   Graph graph(rgbI, segImg, params.fWeights());
 

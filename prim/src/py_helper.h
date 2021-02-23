@@ -15,11 +15,11 @@ Params ParamsFromPy(uint nProposals, double *alpha, uint alphaSize) {
     // Image colorspace
     p.setColorspace(LAB);
     
-    // Superpixels params
+    // Superpixels segementation params
     Params::SpParams spParams;
     spParams.c_ = 100;
-    spParams.min_size_ = 100;
-    spParams.sigma_ = 0.8;
+    spParams.min_size_ = 50;
+    spParams.sigma_ = 0.5;
     p.setSpParams(spParams);
     
     // Alpha values, trained from VOC07

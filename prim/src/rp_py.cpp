@@ -4,8 +4,8 @@
 #include "py_helper.h"
 
 
-extern "C" void rp(uchar *img, uint *imgShape, uint nProposals, double *alpha, uint alphaSize, bool *out) {    
-    
+extern "C" void rp(uchar *img, uint *imgShape, double *segmentMask,  uint nProposals, double *alpha, uint alphaSize, bool *out) {    
+
     // Load image
     const Image I(img, std::vector<uint> (imgShape, imgShape + 3), RGB);
 
@@ -13,5 +13,5 @@ extern "C" void rp(uchar *img, uint *imgShape, uint nProposals, double *alpha, u
     const Params params = ParamsFromPy(nProposals, alpha, alphaSize);
 
     // Execute random Prim.
-    RP(I, params, out);
+    RP(I, segmentMask, params, out);
 }
