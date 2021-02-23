@@ -1,6 +1,19 @@
 # CSRT tracker algorithm with kalman filter
 Project about object tracking for the Signal, Image and Video course
 
+## Get started
+
+### Importing the conda env
+- Open the Anaconda shell
+- Run *conda env create -f environment.yml*
+- Run *conda activate name_of_the_environment*
+- Open your favorite editor using the just-created environment (for example, fire *code .* in the same Anaconda shell)
+
+### Compile C libraries
+Run:
+- `cd prim`
+- `make`
+
 ## Original README
 PROJECT ON MULTIPLE PLAYERS TRACKING \
 ANDREA MONTIBELLER \
@@ -32,8 +45,3 @@ In the folder Code you can find the following scripts:
     - Moreover, it gives an estimation of the trajectory length, the average speed and acceleration.
     - The outputs are saved in the Output/Tracking folder.
 
-## Importing the conda env
-- Open the Anaconda shell
-- Run *conda env create -f environment.yml*
-- Run *conda activate name_of_the_environment*
-- Open your favorite editor using the just-created environment (for example, fire *code .* in the same Anaconda shell)
