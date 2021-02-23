@@ -5,6 +5,7 @@
 
 
 extern "C" void rp(uchar *img, uint *imgShape, uint nProposals, double *alpha, uint alphaSize, bool *out) {    
+    
     // Load image
     const Image I(img, std::vector<uint> (imgShape, imgShape + 3), RGB);
 

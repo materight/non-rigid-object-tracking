@@ -35,7 +35,7 @@ Params ParamsFromPy(uint nProposals, double *alpha, uint alphaSize) {
     p.setFWeights(fWeights);
     
     // Random seed
-    p.setRSeedForRun(1);
+    p.setRSeedForRun(10690970);
 
     // Verbose output
     p.setVerbose(false);

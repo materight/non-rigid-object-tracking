@@ -67,7 +67,7 @@ Image::Image(const uchar * const I, const std::vector<uint> dims, const Colorspa
     for(uint j=0; j<w_; j++){
       I_.at(i).at(j).resize(c_);
       for(uint k=0; k<c_; k++){
-        I_.at(i).at(j).at(k)=I[i+j*h_+k*h_*w_];
+        I_.at(i).at(j).at(k)=I[i*w_*c_+j*c_+k];
       }
     }
   }

@@ -1,6 +1,7 @@
 import ctypes
 import pathlib
 import numpy as np
+import cv2 as cv
 
 
 # Load the shared library into ctypes
@@ -14,6 +15,7 @@ if not alpha.flags['C_CONTIGUOUS']:
 	alpha = np.ascontiguousarray(alpha)
 
 def RP(img, n_proposals):
+	img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 	if not img.flags['C_CONTIGUOUS']: img = np.ascontiguousarray(img)
 	out = np.full((n_proposals, img.shape[0], img.shape[1]), False)
 	rp_fun(img.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)), 

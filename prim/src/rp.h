@@ -144,21 +144,16 @@ void RP(const Image& rgbI, const Params& params, bool *out){
     }
 
     /* Compute proposals masks */
-    const PixelList& pl = segImg.pixelList(k % nSps);
-    for(int p_i = 0; p_i < pl.size(); p_i++) {
-      out[k * I.w() * I.h() + pl[p_i].first * I.w() + pl[p_i].second] = true;
-    }
-    /*
     for(uint s=0;s<nSps;s++){
       if(spGroups.at(k).at(s)){
         const PixelList& pl = segImg.pixelList(s);
         for(int p_i = 0; p_i < pl.size(); p_i++) {
           if(pl[p_i].first > I.h()) printf("Error, first too high\n");
           else if(pl[p_i].second > I.w()) printf("Error, second too high\n");
-          else if(s == 0) out[k * I.w() * I.h() + pl[p_i].first * I.w() + pl[p_i].second] = true;
+          else out[k * I.w() * I.h() + pl[p_i].first * I.w() + pl[p_i].second] = true;
         }
       }
-    }*/
+    }
 
     T.Reset();
   }
