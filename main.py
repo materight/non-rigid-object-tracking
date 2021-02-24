@@ -291,7 +291,7 @@ while (1):
     index += 1
     if index % 2 == 0:
         continue
-    if index > 50:
+    if 1: #index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
