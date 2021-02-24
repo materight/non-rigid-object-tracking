@@ -10,14 +10,16 @@ from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, jaccard_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import f1_score
 
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 from skimage.filters import sobel
 from skimage.color import rgb2gray
 
 from .masker import Masker
-
+from prim import RP
+import math
 
 class LinPauNonRigidTracker(Masker):
     """
@@ -51,17 +53,13 @@ class LinPauNonRigidTracker(Masker):
         
         #plt.imshow(segments_quick, cmap='hot')
         #plt.show()
-        
-        prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
-
-        #if self.index == 10:
-        #    return
 
         if self.index == 0:
+            prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
             labels_foreground = self.getForegroundSegments(segments_quick, self.ground_truth, frame)
             X , y = self.extractFeatures(frame, segments_quick, labels_foreground)
 
-            self.knn = RandomForestClassifier(random_state=42, n_estimators=3, max_depth=7).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.knn = DecisionTreeClassifier(random_state=42, max_depth=2).fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=3, max_depth=7).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
@@ -75,19 +73,32 @@ class LinPauNonRigidTracker(Masker):
             for l in labels_foreground:
                 self.prev_target[segments_quick == l] = 255
 
-            #plt.imshow(prob_map, cmap='hot')
-            #plt.show()
+            plt.imshow(prob_map, cmap='hot')
+            plt.show()
         else:
             X , _ = self.extractFeatures(frame, segments_quick, labels_foreground=[])
             probs = self.knn.predict_proba(X)
 
-            _ , areas = np.unique(segments_quick, return_counts=True)
-            #for i , label in enumerate(labels)):
-            #    prob_map[segments_quick == label] = probs[i, 1] * 255
-            #plt.imshow(prob_map, cmap='hot')
-            #plt.show()
+            labels , areas = np.unique(segments_quick, return_counts=True)
+            prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
+            for i , label in enumerate(labels):
+                prob_map[segments_quick == label] = probs[i, 1] * 255
+            plt.imshow(prob_map, cmap='hot')
+            plt.show()
 
-            candidates = self.getCandidatesBBox(frame, segments_quick) 
+            #candidates = self.getCandidatesBBox(frame, segments_quick) 
+            candidates = self.getPrimCandidates(frame, segments_quick)
+
+
+            """
+            temporary patch
+            """
+            c = []
+            for candidate in candidates:
+                tmp2 = np.zeros(candidate.shape, dtype=np.uint8)
+                tmp2[np.nonzero(candidate == True)] = segments_quick[np.nonzero(candidate == True)]
+                c.append(tmp2)
+            candidates = c
 
             similarity = [] #similarity for every candidate. Eq. (2)
             motion_weights = [] #Eq. (3)
@@ -101,8 +112,7 @@ class LinPauNonRigidTracker(Masker):
                 similarity.append(tmp) 
 
                 #Eq (3)
-                candidate_binary = candidate.astype(np.bool)                
-                
+                candidate_binary = candidate.astype(np.bool)                       
                 intersection = np.logical_and(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 union = np.logical_or(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 iou = np.sum(intersection) / np.sum(union)
@@ -112,13 +122,23 @@ class LinPauNonRigidTracker(Masker):
 
             similarity = np.array(similarity)
             similarity /= max(similarity) #normalize. Equal to compute b in Eq (2)
-            motion_weights = np.array(motion_weights)
             best_candidate = np.argmax(similarity * motion_weights)
-            self.prev_target = candidates[best_candidate] #.astype(np.bool)
 
-            cv.imshow("Best candidate", candidates[best_candidate])
+            sa = np.argsort(similarity * motion_weights)[-3:][::-1]
+            for i in range(3):
+                cv.imshow(f"Best candidate {i}", candidates[sa[i]])
+            cv.waitKey()
+
+            self.prev_target = candidates[best_candidate]
+
+            #cv.imshow("Best candidate", candidates[best_candidate])
 
         self.index += 1
+
+
+    def getPrimCandidates(self, frame, segments):
+        res = RP(frame, 1000, segment_mask=segments)
+        return res
 
 
     def getCandidatesBBox(self, frame, segmentation, strategy="all", proposal_box_limit = 100, print_results=False):
@@ -180,6 +200,7 @@ class LinPauNonRigidTracker(Masker):
         """
         Extract the HHH feature as proposed by the paper, i.e, HSV histogram for a sequence of eroded segments
         """
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         X , y = [] , []
         kernel = np.ones((self.erosion_kernel_size, self.erosion_kernel_size),np.uint8) #erosion kernel. Size not specified by the paper
         num_level_erosion = self.num_level_erosion
@@ -246,17 +267,17 @@ class LinPauNonRigidTracker(Masker):
             assignements[key] /= counts[key]                
         
         #to show the results
-        #test = np.zeros_like(segments, dtype=np.uint8)
-        #for i in range(segments.shape[0]):
-        #    for j in range(segments.shape[1]):
-        #        test[i,j] = 255 if assignements.get(segments[i,j], 0) >= 0.7 else 0 #assignements[segments[i,j]] * 255
+        test = np.zeros_like(segments, dtype=np.uint8)
+        for i in range(segments.shape[0]):
+            for j in range(segments.shape[1]):
+                test[i,j] = 255 if assignements.get(segments[i,j], 0) >= 0.7 else 0 #assignements[segments[i,j]] * 255
 
-        #show_image = cv.addWeighted(src1=cv.cvtColor(frame, cv.COLOR_BGR2GRAY), alpha=0.1, src2=test, beta=0.9, gamma=0)
-        #boundaries = mark_boundaries(show_image, segments)
-        #bbox_gt = np.zeros_like(frame)
-        #bbox_gt[:,:,2] = ground_truth
-        #cv.imshow("Superpixels", boundaries + bbox_gt) 
-        #cv.waitKey(300)
+        show_image = cv.addWeighted(src1=cv.cvtColor(frame, cv.COLOR_BGR2GRAY), alpha=0.1, src2=test, beta=0.9, gamma=0)
+        boundaries = mark_boundaries(show_image, segments)
+        bbox_gt = np.zeros_like(frame)
+        bbox_gt[:,:,2] = ground_truth
+        cv.imshow("Superpixels", boundaries + bbox_gt) 
+        cv.waitKey(0)
         ##cv.imshow("Foreground superpixels", show_image)
 
         return np.array(list(assignements.keys()))[np.array(list(assignements.values())) >= 0.7]
