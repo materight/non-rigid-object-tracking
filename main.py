@@ -185,7 +185,7 @@ if MANUAL_ROI_SELECTION:
         if (key == ord('q')):  # q is pressed
             cv.destroyWindow('ROI')
             break
-        if POLYNOMIAL_ROI and key == ord("\r"): 
+        if POLYNOMIAL_ROI and key == ord("\r"):
             print("[INFO] ROI coordinates:", pts)
             if len(pts) >= 3:
                 # self.poly_roi.append(pts[0])
@@ -211,7 +211,9 @@ else:
     [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
+        pts = [(170, 67), (182, 60), (201, 62), (219, 65), (227, 64), (237, 66), (219, 87), (209, 100), (196, 111), (198, 98), (188, 82), (173, 76)]
+        for i, _ in enumerate(pts):
+            pts[i] = (pts[i][0] * 2, pts[i][1] * 2)
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -279,8 +281,6 @@ if SHOW_HOMOGRAPHY:
     cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
 
-
-
 benchmarkDist = []
 start = time.time()
 index = 0
@@ -291,7 +291,7 @@ while (1):
     index += 1
     if index % 2 == 0:
         continue
-    if 1: #index > 50:
+    if 1:  # index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
@@ -299,7 +299,7 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
-        maskers[i].update(frame=smallFrame)
+        maskers[0].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -313,7 +313,7 @@ while (1):
             p2_k = kalman_filtersp2[i].estimate(p2_t[0], p2_t[1])
             # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
             vector = np.dot(h, np.transpose([predictedCoords[0][0], predictedCoords[1][0], 1]))
-            
+
             tracking_point_img = (vector[0], vector[1])
             w = vector[2]
             tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
@@ -347,7 +347,7 @@ while (1):
             # RE-INITIALIZATION END
 
             #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
-            
+
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
                 benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
@@ -397,7 +397,7 @@ plt.tight_layout()
 plt.show()
 
 #plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
-#plt.show()
+# plt.show()
 
 
 #    _____          _   _____                             _

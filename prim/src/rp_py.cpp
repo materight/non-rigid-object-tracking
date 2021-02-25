@@ -9,9 +9,14 @@ extern "C" void rp(uchar *img, uint *imgShape, double *segmentMask,  uint nPropo
     // Load image
     const Image I(img, std::vector<uint> (imgShape, imgShape + 3), RGB);
 
-    // Load params
-    const Params params = ParamsFromPy(nProposals, alpha, alphaSize);
+    // Execute segmentation in different colorspaces
+    Colorspace cspaces[4] = { LAB, Opponent, rg, HSV };
+    int nProposalPerSpace = nProposals / 4;
+    for (int i=0; i<4; i++) {
+        // Load params
+        const Params params = ParamsFromPy(nProposalPerSpace, alpha, alphaSize, cspaces[i]);
 
-    // Execute random Prim.
-    RP(I, segmentMask, params, out);
+        // Execute random Prim.
+        RP(I, segmentMask, params, out + (i * nProposalPerSpace * I.w() * I.h()));
+    }
 }

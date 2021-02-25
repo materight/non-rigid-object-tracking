@@ -6,24 +6,24 @@
 
 //TODO: read params from yaml file
 
-Params ParamsFromPy(uint nProposals, double *alpha, uint alphaSize) {
+Params ParamsFromPy(uint nProposals, double *alpha, uint alphaSize, Colorspace colorspace) {
     Params p;
 
     // Number of object proposals
-    p.setNProposals(nProposals); 
-    
+    p.setNProposals(nProposals);
+
     // Image colorspace
-    p.setColorspace(LAB);
-    
+    p.setColorspace(colorspace);
+
     // Superpixels segementation params
     Params::SpParams spParams;
     spParams.c_ = 100;
     spParams.min_size_ = 50;
     spParams.sigma_ = 0.5;
     p.setSpParams(spParams);
-    
+
     // Alpha values, trained from VOC07
-    std::vector<double> alphaVector (alpha, alpha + alphaSize);
+    std::vector<double> alphaVector(alpha, alpha + alphaSize);
     p.setAlpha(alphaVector);
 
     // Similarity weights
@@ -33,7 +33,7 @@ Params ParamsFromPy(uint nProposals, double *alpha, uint alphaSize) {
     fWeights.wLABColorHist_ = -2.6864;
     fWeights.wSizePer_ = -2.3655;
     p.setFWeights(fWeights);
-    
+
     // Random seed
     p.setRSeedForRun(10690970);
 

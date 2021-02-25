@@ -18,7 +18,7 @@ class Graph{
 
   public:
 
-    Graph(const Image& im, const SegImage& segIm, const Params::FWeights& fWeights);
+    Graph(const Image& im, const SegImage& segIm, const Params::FWeights& fWeights, Colorspace colorspace);
 
     Graph(const double* S, const uint rowsS, const uint nNodes); //For reading simmatrix from matlab
 
@@ -77,7 +77,7 @@ void Graph::BuildGraphFromS(){
   }
 }
 
-Graph::Graph(const Image& rgbI, const SegImage& segIm, const Params::FWeights& fWeights){
+Graph::Graph(const Image& rgbI, const SegImage& segIm, const Params::FWeights& fWeights, Colorspace colorspace){
 
   //TODO:Precompute features and similarities and save similarity graph.
 

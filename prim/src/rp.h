@@ -31,7 +31,7 @@ void RP(const Image& rgbI, double *segmentMask, const Params& params, bool *out)
   
   SegImage segImg(I, segmentMask, params.spParams());
 
-  Graph graph(rgbI, segImg, params.fWeights());
+  Graph graph(rgbI, segImg, params.fWeights(), params.colorspace());
 
   const uint nProposals=params.nProposals();
   const uint nSps=segImg.nSps();
