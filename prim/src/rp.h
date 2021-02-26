@@ -20,13 +20,12 @@ double Unif01(){
   return ((double) rand() / (double) (RAND_MAX+1.0));
 }
 
-void RP(const Image& rgbI, double *segmentMask, const Params& params, bool *out){
+void RP(const Image& rgbI, double *segmentMask, const Params& params, uint *out){
 
   /*Preprocessing stage*/
   uint usedSeed = params.rSeedForRun();
   srand(usedSeed);
   
-
   Image I(rgbI.convertToColorspace(params.colorspace()));
   
   SegImage segImg(I, segmentMask, params.spParams());
@@ -142,9 +141,7 @@ void RP(const Image& rgbI, double *segmentMask, const Params& params, bool *out)
       if(spGroups.at(k).at(s)){
         const PixelList& pl = segImg.pixelList(s);
         for(int p_i = 0; p_i < pl.size(); p_i++) {
-          if(pl[p_i].first > I.h()) printf("Error, first too high\n");
-          else if(pl[p_i].second > I.w()) printf("Error, second too high\n");
-          else out[k * I.w() * I.h() + pl[p_i].first * I.w() + pl[p_i].second] = true;
+          out[k * I.w() * I.h() + pl[p_i].first * I.w() + pl[p_i].second] = s;
         }
       }
     }

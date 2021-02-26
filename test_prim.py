@@ -13,16 +13,12 @@ segments = skiseg.quickshift(img, kernel_size=3, max_dist=6, ratio=0.5)
 
 res = RP(img, 1000, segment_mask=segments)
 
-
 def plt():
-    # r = cv.selectROI(img)
-    # bbox = np.zeros(img.shape[:2], dtype=np.uint8)
-    # bbox[int(r[1]):int(r[1]+r[3]), int(r[0]):int(r[0]+r[2])] = 1
-    dist = np.array([-np.sum(truth.astype(np.bool).reshape(-1) & res[i].reshape(-1)) / np.sum(truth.astype(np.bool).reshape(-1) | res[i].reshape(-1)) for i in range(res.shape[0])])
+    dist = np.array([-np.sum(truth.astype(np.bool) & res[i].astype(np.bool)) / np.sum(truth.astype(np.bool) | res[i].astype(np.bool)) for i in range(res.shape[0])])
     segs = dist.argsort()
     for i in segs:
         masked = img.copy()
-        masked[~res[i]] = [0, 0, 0]
+        masked[res[i] == 0] = [0, 0, 0]
         masked = skiseg.mark_boundaries(masked, segments, color=(0, 0, 0))
         cv.imshow('image', masked)
         if cv.waitKey(0) & 0xFF == ord('q'):

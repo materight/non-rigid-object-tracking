@@ -22,7 +22,7 @@ def RP(img, n_proposals, segment_mask=None):
 	if segment_mask is not None:
 		segment_mask = segment_mask.astype(np.float64).T
 		if not segment_mask.flags['C_CONTIGUOUS']: segment_mask = np.ascontiguousarray(segment_mask)
-	out = np.full((n_proposals, img.shape[0], img.shape[1]), False)
+	out = np.zeros((n_proposals, img.shape[0], img.shape[1]), dtype=np.uint32)
 	# Execute Random Prim algorithm
 	rp_fun(
 		# Image 
@@ -36,7 +36,7 @@ def RP(img, n_proposals, segment_mask=None):
 		alpha.ctypes.data_as(ctypes.POINTER(ctypes.c_double)), 
 		ctypes.c_int(len(alpha)),
 		# Output matrix with results
-		out.ctypes.data_as(ctypes.POINTER(ctypes.c_bool)),
+		out.ctypes.data_as(ctypes.POINTER(ctypes.c_uint)),
 	)
 	return out
 

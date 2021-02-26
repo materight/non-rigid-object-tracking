@@ -111,14 +111,14 @@ Image Image::convertToColorspace(const Colorspace colorspace) const{
         convI.I_.at(i).at(j).at(2)=(uchar) (RGB/3.0);
       }
     }
-  }else if(this->colorspace_==RGB && colorspace==LAB){
-
+  }
+  else if(this->colorspace_==RGB && colorspace==LAB){
     const Image& rgbI=*this;
     Image& labI=convI;
 
     const uint  h=rgbI.h(),w=rgbI.w();
 
-    double r,g,b,x,y,z,L,A,B,fx,fy,fz,delta;
+    double r,g,b,x,y,z,L,A,B,fx,fy,fz,delta=0;
     for(uint i=0; i<h; i++){
       for(uint j=0; j<w; j++){
 
@@ -165,7 +165,8 @@ Image Image::convertToColorspace(const Colorspace colorspace) const{
         labI.I_.at(i).at(j).at(2)=round(B);
       }
     }
-  }else if(this->colorspace_==RGB && colorspace==HSV){
+  }
+  else if(this->colorspace_==RGB && colorspace==HSV){
     const Image& rgbI=*this;
     Image& hsvI=convI;
 
@@ -224,7 +225,8 @@ Image Image::convertToColorspace(const Colorspace colorspace) const{
       }
     }
 
-  }else if(this->colorspace_==RGB && colorspace==Opponent){
+  }
+  else if(this->colorspace_==RGB && colorspace==Opponent){
     //Evaluating Color Descriptors for Object and Scene Recognition
     
     const Image& rgbI=*this;
@@ -290,7 +292,8 @@ Image Image::convertToColorspace(const Colorspace colorspace) const{
       }
     }
 
-  }else{
+  }
+  else{
 
     printf("this->colorspace_:%d colorspace:%d\n",this->colorspace_,colorspace);
     printf("RGB:%d\n",RGB);
