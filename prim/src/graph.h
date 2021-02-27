@@ -86,7 +86,7 @@ Graph::Graph(const Image& rgbI, const SegImage& segIm, const Params::FWeights& f
 
   //Preprocess LAB color histograms
 
-  Image labI(rgbI.convertToColorspace(LAB));
+  Image labI(rgbI.convertToColorspace(colorspace));
 
   std::vector<NHist3> labCHists;
   labCHists.reserve(nSps);
