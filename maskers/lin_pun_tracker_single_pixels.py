@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, mean_squared_error
 from sklearn.model_selection import GridSearchCV
 
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
@@ -21,6 +21,8 @@ from skimage.color import rgb2gray
 from .masker import Masker
 from prim import RP
 import math
+
+import pandas as pd
 
 class LinPauNonRigidTracker(Masker):
     """
@@ -63,12 +65,24 @@ class LinPauNonRigidTracker(Masker):
             labels_foreground = self.getForegroundSegments(segments_quick, self.ground_truth, frame)
             X , y = self.extractFeatures(frame, segments_quick, labels_foreground)
 
-            parameters = {
-                #"n_estimators": [5, 10, 20, 70],
-                #"max_depth": [5, 10, 15],
-                "n_neighbors": [15,21,29]
-            }
-            #self.knn = GridSearchCV(KNeighborsClassifier(weights='distance'), parameters, n_jobs=3, verbose=3, scoring="f1") #RandomForestClassifier(random_state=42, n_estimators=9, max_depth=9).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.pca = PCA(n_components=5).fit(X[y == 1])
+            X_pca = self.pca.transform(X)
+            X_inv = self.pca.inverse_transform(X_pca)
+
+            error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
+            error = error/max(error)
+            print(pd.DataFrame(error).describe())
+            sa = error.reshape(segments_quick.shape) #np.zeros_like(segments_quick, dtype=n.uint8)
+            
+            plt.imshow(sa)
+            plt.show()
+
+
+            #parameters = {
+            #    "n_estimators": [5, 10, 20, 70],
+            #    "max_depth": [5, 10, 15],
+            #}
+            #self.knn = GridSearchCV(RandomForestClassifier(random_state=42), parameters, n_jobs=3, verbose=3, scoring="f1") #RandomForestClassifier(random_state=42, n_estimators=9, max_depth=9).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             #self.knn.fit(X, y)
             #print("Best params = ", self.knn.best_params_)
             #self.knn = self.knn.best_estimator_
@@ -96,28 +110,53 @@ class LinPauNonRigidTracker(Masker):
             X , _ = self.extractFeatures(frame, segments_quick, labels_foreground=[])
             probs = self.knn.predict_proba(X)
 
+            X_pca = self.pca.transform(X)
+            X_inv = self.pca.inverse_transform(X_pca)
+
+            error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
+            error = error / max(error)
+            error[error <= 0.5] = 0 
+            sa = error.reshape(segments_quick.shape)
+            cv.imshow("PCA", sa)
+
             labels , areas = np.unique(segments_quick, return_counts=True)
             prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
             segment_probs = defaultdict(float)
+            segment_probs2 = defaultdict(float)
             c = 0
             for i in range(prob_map.shape[0]):
                 for j in range(prob_map.shape[1]):
                     #prob_map[i, j] = probs[c, 1] * 255
+                    if sa[i,j] <= 0.5:
+                        segment_probs2[segments_quick[i,j]] += probs[c, 1]
                     segment_probs[segments_quick[i,j]] += probs[c, 1]
                     c += 1
 
             steve = np.zeros_like(segments_quick, dtype=np.uint8)
+            steve2 = np.zeros_like(segments_quick, dtype=np.uint8)
             for key in segment_probs.keys():
                 segment_probs[key] /= areas[key] #compute average of probs for every segment
-                steve[np.nonzero(segments_quick == key)] = segment_probs[key] * 255
+                segment_probs2[key] /= areas[key] 
+                if segment_probs[key] > 0.5:
+                    val = 255
+                #elif segment_probs[key] > 0.4:
+                #    val = 125
+                else:
+                    val = 0
+                steve[np.nonzero(segments_quick == key)] = val
+                steve2[np.nonzero(segments_quick == key)] = 255 if segment_probs2[key] > 0.5 else 0
 
             #plt.imshow(prob_map, cmap='hot') 
             #plt.show()
             cv.imshow("Prob. map", steve)
+            cv.imshow("Prob. map PCA", steve2)
 
+            
+
+            """
             #candidates = self.getCandidatesBBox(frame, segments_quick) 
             candidates = self.getPrimCandidates(frame, segments_quick).astype(np.uint16)
-            """
+            ""
             temporary patch
             
             c = []
@@ -126,10 +165,7 @@ class LinPauNonRigidTracker(Masker):
                 tmp2[np.nonzero(candidate == True)] = segments_quick[np.nonzero(candidate == True)]
                 c.append(tmp2)
             candidates = c
-            """
-
-            #TODO: Fix label of segmets starting at 0
-
+            ""
             similarity = [] #similarity for every candidate. Eq. (2)
             motion_weights = [] #Eq. (3)
             IoU = [] #for debug
@@ -182,7 +218,7 @@ class LinPauNonRigidTracker(Masker):
             plt.show()
 
             self.prev_target = candidates[best_candidate]
-            print(len(np.unique(self.prev_target)))
+        """
 
             #cv.imshow("Best candidate", candidates[best_candidate].astype(np.uint8))
 
@@ -254,9 +290,6 @@ class LinPauNonRigidTracker(Masker):
         tmp[:,:,:3] = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         tmp[:,:,3:6] = frame
         sa = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
-        assert np.max(sa[:,:,0]) <= 255 and np.min(sa[:,:,0]) >= 0
-        assert np.max(sa[:,:,1]) <= 255 and np.min(sa[:,:,1]) >= 0
-        assert np.max(sa[:,:,2]) <= 255 and np.min(sa[:,:,2]) >= 0
         tmp[:,:,6:9] = sa
         frame = tmp
 
