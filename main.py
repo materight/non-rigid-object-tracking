@@ -297,7 +297,7 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
-        #maskers[0].update(frame=smallFrame)
+        maskers[0].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -344,8 +344,8 @@ while (1):
                 histo[i] = hist_2
             # RE-INITIALIZATION END
 
-            
-            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+
+            #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -371,7 +371,7 @@ while (1):
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
-            out_mask.write(maskedFrame)  # Save masked video
+            out_mask.write(cv.cvtColor(maskedFrame, cv.COLOR_GRAY2RGB)) # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
