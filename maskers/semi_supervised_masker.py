@@ -147,23 +147,23 @@ class SemiSupervisedNonRigidMasker(Masker):
 
             probs = self.knn.predict_proba(X)
 
-            segment_probs2 = defaultdict(float)
-            segment_probs3 = defaultdict(float)
+            segment_probs = defaultdict(float)
+            segment_probs_pca = defaultdict(float)
             c = 0
             for i in range(crop_frame.shape[0]):
                 for j in range(crop_frame.shape[1]):
-                    segment_probs2[segments_quick[i,j]] += probs[c, 1]
-                    segment_probs3[segments_quick[i,j]] += probs[c, 1] - (max(sa[i,j], self.pca_threshold) - self.pca_threshold)
+                    segment_probs[segments_quick[i,j]] += probs[c, 1]
+                    segment_probs_pca[segments_quick[i,j]] += probs[c, 1] - (max(sa[i,j], self.pca_threshold) - self.pca_threshold)
                     c += 1
 
             prob_map = np.zeros_like(segments_quick, dtype=np.uint8)
             prob_map_pca = np.zeros_like(segments_quick, dtype=np.uint8)
-            for key in segment_probs2.keys():
-                segment_probs2[key] /= areas[key] 
-                segment_probs3[key] /= areas[key] 
+            for key in segment_probs.keys():
+                segment_probs[key] /= areas[key] 
+                segment_probs_pca[key] /= areas[key] 
                 idxs = np.nonzero(segments_quick == key)
-                prob_map[idxs] = 255 if segment_probs2[key] > 0.5 else 0
-                prob_map_pca[idxs] = 255 if segment_probs3[key] > 0.5 else 0
+                prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
+                prob_map_pca[idxs] = 255 if segment_probs_pca[key] > 0.5 else 0
             cv.imshow("Prob. map superpixels", prob_map)
             cv.imshow("Prob. map superpixels with PCA", prob_map_pca)
 
