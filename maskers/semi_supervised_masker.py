@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from collections import defaultdict
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
@@ -12,6 +13,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
 from .masker import Masker
+
+import pandas as pd
+from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 
 
 class SemiSupervisedNonRigidMasker(Masker):
@@ -36,6 +40,9 @@ class SemiSupervisedNonRigidMasker(Masker):
     def update(self, bbox, frame, mask, color):
         """
         Requires the very first frame as input here
+        
+        PCA is used for outlier detection. A score is assigned to every pixel (the higher, the more probable that a pixel is an outlier).
+        This score is used to lower the prediction of the discriminator, with the goal of correcting its predictions.
         """
         if self.index == 0:
             crop_frame = frame[self.prevBbox[1]:self.prevBbox[1] + self.prevBbox[3], self.prevBbox[0]:self.prevBbox[0] + self.prevBbox[2]]
@@ -51,24 +58,29 @@ class SemiSupervisedNonRigidMasker(Masker):
             k = 5
             self.scaler = StandardScaler()
             X = X / 255 
-            self.knn = RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.knn = RandomForestClassifier(random_state=42, n_estimators=30, max_depth=7).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             self.train_X = X; self.train_y = y
-            print(self.knn.outlier_label_)
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
             f1 = round(f1_score(y, y_pred), 2)
             print("F1 score classifier = ", f1)
 
-            prob_map = np.zeros_like(self.mask, dtype=np.int16)
+            prob_map = np.zeros_like(self.mask, dtype=np.uint8)
             mask_active_idx = np.argwhere(self.mask > 0)
             mask_deactive_idx = np.argwhere(self.mask == 0)
 
             for i , idx in enumerate(mask_active_idx):
-                prob_map[idx[0], idx[1]] = probs[i, 1] * 255  
-
+                prob_map[idx[0], idx[1]] = probs[i, 1] * 255
             start = sum(y==1)
             for i , idx in enumerate(mask_deactive_idx):
                 prob_map[idx[0], idx[1]] = probs[start + i, 1]  * 255
+
+            self.pca = PCA(n_components=1).fit(X[y == 1])
+            X_pca = self.pca.transform(X)
+            X_inv = self.pca.inverse_transform(X_pca)
+            error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
+            print(pd.DataFrame(error).describe())
+            self.pca_threshold = np.percentile(error, 90)
 
             """fig = plt.figure()
             #ax = fig.add_subplot(111, projection='3d')
@@ -86,11 +98,9 @@ class SemiSupervisedNonRigidMasker(Masker):
             X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=True)
             
             X_nroi , y_nroi = self.getRONI(frame)
-            print(np.unique(y_nroi, return_counts=True))
 
             X = np.concatenate([self.train_X[self.train_y==1], X, X_nroi], axis=0) / 255
-            y = np.concatenate([self.train_y[self.train_y==1], y, y_nroi])     
-            print(np.unique(y, return_counts=True))
+            y = np.concatenate([self.train_y[self.train_y==1], y, y_nroi]) 
 
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
@@ -120,19 +130,53 @@ class SemiSupervisedNonRigidMasker(Masker):
             plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             plt.show()
         else:
-            crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+            enlarge_bbox = 20
+            crop_frame = frame[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])]
             X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
             X = X / 255 
 
+            X_pca = self.pca.transform(X)
+            X_inv = self.pca.inverse_transform(X_pca)
+            error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
+            sa = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()
+            error[error <= self.pca_threshold] = 0 
+            cv.imshow("PCA", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
+
+            segments_quick = quickshift(crop_frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
+            _ , areas = np.unique(segments_quick, return_counts=True)
+
             probs = self.knn.predict_proba(X)
-            prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
+
+            segment_probs2 = defaultdict(float)
+            segment_probs3 = defaultdict(float)
             c = 0
-            for i in range(prob_map.shape[0]):
-                for j in range(prob_map.shape[1]):
-                    prob_map[i, j] = 255  if probs[c, 1] >= 0.6 else 0
-                    c += 1 #TODO: infer c from i and j
-            cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
-            mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = prob_map[:,:,0]
+            for i in range(crop_frame.shape[0]):
+                for j in range(crop_frame.shape[1]):
+                    segment_probs2[segments_quick[i,j]] += probs[c, 1]
+                    segment_probs3[segments_quick[i,j]] += probs[c, 1] - (max(sa[i,j], self.pca_threshold) - self.pca_threshold)
+                    c += 1
+
+            prob_map = np.zeros_like(segments_quick, dtype=np.uint8)
+            prob_map_pca = np.zeros_like(segments_quick, dtype=np.uint8)
+            for key in segment_probs2.keys():
+                segment_probs2[key] /= areas[key] 
+                segment_probs3[key] /= areas[key] 
+                idxs = np.nonzero(segments_quick == key)
+                prob_map[idxs] = 255 if segment_probs2[key] > 0.5 else 0
+                prob_map_pca[idxs] = 255 if segment_probs3[key] > 0.5 else 0
+            cv.imshow("Prob. map superpixels", prob_map)
+            cv.imshow("Prob. map superpixels with PCA", prob_map_pca)
+
+            mask[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])] = prob_map[:,:]
+
+            #prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
+            #c = 0
+            #for i in range(prob_map.shape[0]):
+            #    for j in range(prob_map.shape[1]):
+            #        prob_map[i, j] = 255  if probs[c, 1] >= 0.6 and sa[i,j] <= 0.3 else 0
+            #        c += 1 #TODO: infer c from i and j
+            #cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
+            
             #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
             #plt.show()
 
@@ -247,22 +291,34 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         return X , y
 
-    def getRGBFeaturesWithNeighbors(self, crop_frame, bbox, train=False):
+    def getRGBFeaturesWithNeighbors(self, frame, bbox, train=False):
         """
         Return RGB values of the 4-neighboorood along with the central pixel's values
         """
         #crop_frame = cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB)
+        sobelx = cv.Sobel(frame, cv.CV_8U,1,0,ksize=3)
+        sobely = cv.Sobel(frame, cv.CV_8U,0,1,ksize=3)
+
+        frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        frame_lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
+
         X_pos , X_neg , y_pos , y_neg = [] , [] , [] , []
-        for i in range(crop_frame.shape[0]):
-            for j in range(crop_frame.shape[1]):
-                features = crop_frame[i,j].tolist()
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
+                features = []
+                features.extend(frame_hsv[i,j].tolist())
+                features.extend(frame_lab[i,j].tolist())
+                features.extend(sobelx[i,j].tolist())
+                features.extend(sobely[i,j].tolist())
                 for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1),
-                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2),
-                             (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3) , (-3,-3), (+3,-3), (-3,+3)]:
+                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2)]:
                     neighbor = (i + span[0] , j + span[1])
                     if (neighbor[0] >= bbox[1] and neighbor[0] <= bbox[1] + bbox[3] and
-                    neighbor[1] >= bbox[0] and neighbor[1] <= bbox[0] + bbox[2]):
-                        features.extend(crop_frame[neighbor[0], neighbor[1]].tolist())
+                       neighbor[1] >= bbox[0] and neighbor[1] <= bbox[0] + bbox[2]):
+                        features.extend(frame_hsv[neighbor[0], neighbor[1]].tolist())
+                        features.extend(frame_lab[neighbor[0], neighbor[1]].tolist())
+                        features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
+                        features.extend(sobely[neighbor[0], neighbor[1]].tolist())
                     else:
                         features.extend([-1, -1, -1])
                         
@@ -276,7 +332,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         X = X_pos + X_neg
         y = y_pos + y_neg
         X = np.array(X, dtype=np.int16)
-        y = np.array(y, dtype=np.int8)
+        y = np.array(y, dtype=np.uint8)
         return X , y
 
 """

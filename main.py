@@ -86,7 +86,7 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
@@ -211,9 +211,9 @@ else:
     [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
+        pts = [(733, 499), (741, 502), (749, 511), (756, 519), (759, 534), (760, 544), (771, 565), (768, 572), (753, 553), (749, 558), (747, 571), (737, 572), (742, 551), (741, 539), (733, 516)]
         for i, _ in enumerate(pts):
-            pts[i] = (pts[i][0] * 2, pts[i][1] * 2)
+            pts[i] = (pts[i][0], pts[i][1])
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -233,8 +233,6 @@ multiTracker = cv.legacy.MultiTracker_create()
 # List for saving points of tracking in the basketball diagram (homography)
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
-#ok, frame = cap.read()
-#smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
 for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
@@ -291,7 +289,7 @@ while (1):
     index += 1
     if index % 2 == 0:
         continue
-    if 1:  # index > 50:
+    if index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
@@ -299,7 +297,7 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
-        maskers[0].update(frame=smallFrame)
+        #maskers[0].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -333,7 +331,7 @@ while (1):
             crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
             hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
             intersection = returnIntersection(histo[i], hist_2)
-            if intersection < TAU:
+            if intersection < 0:
                 print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
                 colors[i] = colorutils.pickNewColor(color_names_used)
                 multiTracker = cv.legacy.MultiTracker_create()
@@ -346,7 +344,8 @@ while (1):
                 histo[i] = hist_2
             # RE-INITIALIZATION END
 
-            #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+            
+            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
