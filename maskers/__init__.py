@@ -7,6 +7,7 @@ from .rigid_masker import RigidMasker
 from .bg_subtractor_masker import BackgroundSubtractorMasker
 from .semi_supervised_masker import SemiSupervisedNonRigidMasker
 from .lin_pun_tracker import LinPauNonRigidTracker 
+from .graph_cut import GraphCut 
 
 def getMaskerByName(name, **args):
     if name == "Sparse" or name == "SparseNonRigidMasking":
@@ -21,5 +22,7 @@ def getMaskerByName(name, **args):
         return SemiSupervisedNonRigidMasker(**args)
     if name == "LinPau":
         return LinPauNonRigidTracker(**args)
+    if name == "GraphCut":
+        return GraphCut(**args)
     else:
         exit("Masker name not found")

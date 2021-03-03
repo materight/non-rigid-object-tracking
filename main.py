@@ -84,7 +84,7 @@ def returnIntersection(hist_1, hist_2):
 #   |_____|_| \_|_____|  |_|
 
 DEBUG = True
-SHOW_MASKS = False
+SHOW_MASKS = True
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
@@ -127,9 +127,9 @@ histo = []
 
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
-out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, 25.0, smallFrame.shape[1::-1])
-out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, 25.0, smallFrame.shape[1::-1])
-points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shape[1::-1])
+out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
+out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps, smallFrame.shape[1::-1])
+points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
 
 
 #    __  __          _____ _   _
@@ -211,9 +211,8 @@ else:
     [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(170, 67), (182, 60), (201, 62), (219, 65), (227, 64), (237, 66), (219, 87), (209, 100), (196, 111), (198, 98), (188, 82), (173, 76)]
-        for i, _ in enumerate(pts):
-            pts[i] = (pts[i][0] * 2, pts[i][1] * 2)
+        pts = [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
+        for i, _ in enumerate(pts): pts[i] = (pts[i][0] * 2, pts[i][1] * 2)
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -299,7 +298,6 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
-        maskers[0].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -345,8 +343,8 @@ while (1):
                         multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
                 histo[i] = hist_2
             # RE-INITIALIZATION END
-
-            #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+            
+            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -372,7 +370,7 @@ while (1):
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
-            out_mask.write(maskedFrame)  # Save masked video
+            out_mask.write(cv.cvtColor(maskedFrame, cv.COLOR_GRAY2RGB))  # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
