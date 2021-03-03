@@ -6,6 +6,7 @@ from .optical_flow_masker import OpticalFlowMasker
 from .rigid_masker import RigidMasker
 from .bg_subtractor_masker import BackgroundSubtractorMasker
 from .semi_supervised_masker import SemiSupervisedNonRigidMasker
+# from .lin_pun_tracker import LinPauNonRigidTracker 
 from .lin_pun_tracker import LinPauNonRigidTracker 
 from .graph_cut import GraphCut 
 

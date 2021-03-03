@@ -232,8 +232,6 @@ multiTracker = cv.legacy.MultiTracker_create()
 # List for saving points of tracking in the basketball diagram (homography)
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
-#ok, frame = cap.read()
-#smallFrame = cv.resize(frame, (0, 0), fx=0.35, fy=0.35)
 for i, bbox in enumerate(bboxes):
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
@@ -288,15 +286,14 @@ cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('in
 truth = None
 while (1):
     index += 1
-    if index % 2 == 0:
-        continue
-    if 1:  # index > 50:
+    # if index % 2 == 0: continue
+    if 1: # index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
-        maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
+        maskedFrame = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
 
         # Update position of the bounding box
@@ -331,7 +328,7 @@ while (1):
             crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
             hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
             intersection = returnIntersection(histo[i], hist_2)
-            if intersection < TAU:
+            if intersection < 0:
                 print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
                 colors[i] = colorutils.pickNewColor(color_names_used)
                 multiTracker = cv.legacy.MultiTracker_create()
@@ -351,7 +348,7 @@ while (1):
                 benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
 
             if DEBUG:
-                cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
+                # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
 
             cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
