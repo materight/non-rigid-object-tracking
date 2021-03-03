@@ -69,6 +69,41 @@ def drawPolyROI(event, x, y, flags, params):
             cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1)
     cv.imshow('ROI', img2)
 
+selectingLineBg, selectingLineFg = False, False
+def drawLineROI(event, x, y, flags, params):
+    global selectingLineBg, selectingLineFg
+    # :mouse callback function
+    img2 = params["image"].copy()
+    bgpts = params["bgpoints"]
+    fgpts = params["fgpoints"]
+    bgmask = params["bgmask"]
+    fgmask = params["fgmask"]
+    if event == cv.EVENT_LBUTTONDOWN: 
+        selectingLineBg = True
+        bgpts.append([])
+    elif event == cv.EVENT_LBUTTONUP:
+        selectingLineBg = False
+    if event == cv.EVENT_RBUTTONDOWN:  
+        selectingLineFg = True
+        fgpts.append([])
+    elif event == cv.EVENT_RBUTTONUP:
+        selectingLineFg = False
+    elif event == cv.EVENT_MOUSEMOVE:
+        if selectingLineBg: bgpts[-1].append((x, y))
+        elif selectingLineFg: fgpts[-1].append((x, y))
+    
+    def drawPoints(img, pts, color):
+        for seg in pts: # Draw points in pts
+            for i, p in enumerate(seg):
+                cv.circle(img, p, 1, color, -1)
+                if i > 0: cv.line(img, seg[i], seg[i - 1], color=color, thickness=2)
+    
+    drawPoints(img2, bgpts, (0,0,255))
+    drawPoints(img2, fgpts, (0,255,0))
+    drawPoints(bgmask, bgpts, 255)
+    drawPoints(fgmask, fgpts, 255)
+    cv.imshow('ROI-lines', img2)
+
 
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
@@ -96,6 +131,7 @@ WINDOW_HEIGHT = 700
 with open('config.yaml') as f:
     loadeddict = yaml.full_load(f)
     TRACKER = loadeddict.get('tracker')
+    MASKER = loadeddict.get('masker')
     TAU = loadeddict.get('tau')
     RESIZE_FACTOR = loadeddict.get('resize_factor')
 
@@ -226,6 +262,22 @@ else:
         bboxes.append(bbox)
         colors.append(colorutils.pickNewColor(color_names_used))
 
+# Select background and foreground points
+bgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
+fgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
+if MASKER == 'GraphCut':
+    bgline, fgline = [], []
+    cv.namedWindow('ROI-lines')
+    cv.imshow('ROI-lines', smallFrame)
+    cv.setMouseCallback('ROI-lines', drawLineROI, {"image": smallFrame, "bgpoints": bgline, "fgpoints": fgline, "bgmask": bgmask, "fgmask": fgmask})
+    print("[INFO] Click left button: select background points, right button: select foreground points")
+    print("[INFO] Press SPACE or ENTER to quit")
+    while True:
+        key = cv.waitKey(0) & 0xFF
+        if key == ord(' ') or key == ord("\r"):  # q or enter is pressed
+            cv.destroyWindow('ROI-lines')
+            break
+
 print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
 
@@ -341,7 +393,7 @@ while (1):
                 histo[i] = hist_2
             # RE-INITIALIZATION END
             
-            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, bgmask=bgmask, fgmask=fgmask, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
