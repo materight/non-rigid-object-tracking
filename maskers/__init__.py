@@ -6,8 +6,8 @@ from .optical_flow_masker import OpticalFlowMasker
 from .rigid_masker import RigidMasker
 from .bg_subtractor_masker import BackgroundSubtractorMasker
 from .semi_supervised_masker import SemiSupervisedNonRigidMasker
-#from .lin_pun_tracker import LinPauNonRigidTracker 
-from .lin_pun_tracker_single_pixels import LinPauNonRigidTracker 
+from .lin_pun_tracker import LinPauNonRigidTracker 
+from .semi_supervised_tracker import SemiSupervisedTracker
 
 def getMaskerByName(name, **args):
     if name == "Sparse" or name == "SparseNonRigidMasking":
@@ -20,6 +20,8 @@ def getMaskerByName(name, **args):
         return BackgroundSubtractorMasker(**args)
     if name == "SemiSupervised":
         return SemiSupervisedNonRigidMasker(**args)
+    if name == "SemiSupervisedTracker":
+        return SemiSupervisedTracker(**args)
     if name == "LinPau":
         return LinPauNonRigidTracker(**args)
     else:

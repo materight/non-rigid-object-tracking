@@ -9,9 +9,9 @@ out_bboxes: output/Tracking/bounding_box.png
 out_players_data: output/Tracking/data_players.txt
 out_tracking_results: output/Tracking/results.png
 
-input_video: output/Video/SegTrack2/Video/soldier.mp4
-input_truth: output/Video/SegTrack2/Truth/parachute.mp4 # Can be null
+input_video: output/Video/SegTrack2/Video/worm.mp4
+input_truth: output/Video/SegTrack2/Truth/worm.mp4 # Can be null
 input_image_homography: sources/Map/basket_field.jpg
 
-masker: SemiSupervised
+masker: SemiSupervisedTracker
 update_mask: False

@@ -289,7 +289,7 @@ while (1):
     index += 1
     if index % 2 == 0:
         continue
-    if index > 50:
+    if 1: #index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
@@ -297,7 +297,9 @@ while (1):
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
         maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
-        maskers[0].update(frame=smallFrame)
+
+        if loadeddict.get('masker') == "SemiSupervisedTracker":
+            maskers[0].update(frame=smallFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -344,8 +346,8 @@ while (1):
                 histo[i] = hist_2
             # RE-INITIALIZATION END
 
-
-            #maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+            if loadeddict.get('masker') != "SemiSupervisedTracker":
+                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
