@@ -69,6 +69,41 @@ def drawPolyROI(event, x, y, flags, params):
             cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1)
     cv.imshow('ROI', img2)
 
+selectingLineBg, selectingLineFg = False, False
+def drawLineROI(event, x, y, flags, params):
+    global selectingLineBg, selectingLineFg
+    # :mouse callback function
+    img2 = params["image"].copy()
+    bgpts = params["bgpoints"]
+    fgpts = params["fgpoints"]
+    bgmask = params["bgmask"]
+    fgmask = params["fgmask"]
+    if event == cv.EVENT_LBUTTONDOWN: 
+        selectingLineBg = True
+        bgpts.append([])
+    elif event == cv.EVENT_LBUTTONUP:
+        selectingLineBg = False
+    if event == cv.EVENT_RBUTTONDOWN:  
+        selectingLineFg = True
+        fgpts.append([])
+    elif event == cv.EVENT_RBUTTONUP:
+        selectingLineFg = False
+    elif event == cv.EVENT_MOUSEMOVE:
+        if selectingLineBg: bgpts[-1].append((x, y))
+        elif selectingLineFg: fgpts[-1].append((x, y))
+    
+    def drawPoints(img, pts, color):
+        for seg in pts: # Draw points in pts
+            for i, p in enumerate(seg):
+                cv.circle(img, p, 1, color, -1)
+                if i > 0: cv.line(img, seg[i], seg[i - 1], color=color, thickness=2)
+    
+    drawPoints(img2, bgpts, (0,0,255))
+    drawPoints(img2, fgpts, (0,255,0))
+    drawPoints(bgmask, bgpts, 255)
+    drawPoints(fgmask, fgpts, 255)
+    cv.imshow('ROI-lines', img2)
+
 
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
@@ -84,9 +119,9 @@ def returnIntersection(hist_1, hist_2):
 #   |_____|_| \_|_____|  |_|
 
 DEBUG = True
-SHOW_MASKS = False
+SHOW_MASKS = True
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = True
+MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
@@ -96,6 +131,7 @@ WINDOW_HEIGHT = 700
 with open('config.yaml') as f:
     loadeddict = yaml.full_load(f)
     TRACKER = loadeddict.get('tracker')
+    MASKER = loadeddict.get('masker')
     TAU = loadeddict.get('tau')
     RESIZE_FACTOR = loadeddict.get('resize_factor')
 
@@ -127,9 +163,9 @@ histo = []
 
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
-out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, 25.0, smallFrame.shape[1::-1])
-out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, 25.0, smallFrame.shape[1::-1])
-points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, 25.0, img.shape[1::-1])
+out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
+out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps, smallFrame.shape[1::-1])
+points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
 
 
 #    __  __          _____ _   _
@@ -211,9 +247,8 @@ else:
     [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
     """
     if POLYNOMIAL_ROI:
-        pts = [(733, 499), (741, 502), (749, 511), (756, 519), (759, 534), (760, 544), (771, 565), (768, 572), (753, 553), (749, 558), (747, 571), (737, 572), (742, 551), (741, 539), (733, 516)]
-        for i, _ in enumerate(pts):
-            pts[i] = (pts[i][0], pts[i][1])
+        pts = [(209, 4), (219, 10), (217, 22), (213, 34), (217, 47), (210, 59), (214, 75), (214, 91), (214, 102), (203, 110), (192, 103), (193, 94), (174, 104), (172, 94), (180, 84), (178, 68), (176, 53), (181, 37), (186, 27), (197, 15)]
+        for i, _ in enumerate(pts): pts[i] = (pts[i][0] * 2, pts[i][1] * 2)
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
         example_bboxes = [bbox]
@@ -226,6 +261,22 @@ else:
         histo.append(hist_1)
         bboxes.append(bbox)
         colors.append(colorutils.pickNewColor(color_names_used))
+
+# Select background and foreground points
+bgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
+fgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
+if MASKER == 'GraphCut':
+    bgline, fgline = [], []
+    cv.namedWindow('ROI-lines')
+    cv.imshow('ROI-lines', smallFrame)
+    cv.setMouseCallback('ROI-lines', drawLineROI, {"image": smallFrame, "bgpoints": bgline, "fgpoints": fgline, "bgmask": bgmask, "fgmask": fgmask})
+    print("[INFO] Click left button: select background points, right button: select foreground points")
+    print("[INFO] Press SPACE or ENTER to quit")
+    while True:
+        key = cv.waitKey(0) & 0xFF
+        if key == ord(' ') or key == ord("\r"):  # q or enter is pressed
+            cv.destroyWindow('ROI-lines')
+            break
 
 print('Selected bounding boxes: {}'.format(bboxes))
 multiTracker = cv.legacy.MultiTracker_create()
@@ -287,15 +338,14 @@ cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('in
 truth = None
 while (1):
     index += 1
-    if index % 2 == 0:
-        continue
-    if 1: #index > 50:
+    # if index % 2 == 0: continue
+    if 1: # index > 50:
         ok, frame = cap.read()
         _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
-        maskedFrame = np.zeros(smallFrame.shape[:-1], dtype=np.uint8)
+        maskedFrame = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
         ok, boxes = multiTracker.update(smallFrame)
 
         if loadeddict.get('masker') == "SemiSupervisedTracker":
@@ -354,7 +404,7 @@ while (1):
                 benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
 
             if DEBUG:
-                cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
+                # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
 
             cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
@@ -373,7 +423,7 @@ while (1):
 
         if index > 50:
             out.write(smallFrame)  # Save video frame by frame
-            out_mask.write(cv.cvtColor(maskedFrame, cv.COLOR_GRAY2RGB)) # Save masked video
+            out_mask.write(cv.cvtColor(maskedFrame, cv.COLOR_GRAY2RGB))  # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
