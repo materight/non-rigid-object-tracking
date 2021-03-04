@@ -45,6 +45,9 @@ class LinPauNonRigidTracker(Masker):
 
 
     def update(self, frame):
+        if self.index == 3:
+            return
+
         segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
         #segments_quick = felzenszwalb(frame, scale=100, sigma=0.5, min_size=50)
         #gradient = sobel(rgb2gray(frame))
@@ -59,7 +62,7 @@ class LinPauNonRigidTracker(Masker):
             labels_foreground = self.getForegroundSegments(segments_quick, self.ground_truth, frame)
             X , y = self.extractFeatures(frame, segments_quick, labels_foreground)
 
-            self.knn = DecisionTreeClassifier(random_state=42, max_depth=2).fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=3, max_depth=7).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
+            self.knn = RandomForestClassifier(random_state=42, n_estimators=9, max_depth=9).fit(X,y) #RadiusNeighborsClassifier(n_jobs=2 ,radius=0.05, weights='distance', outlier_label="most_frequent").fit(X,y) #RandomForestClassifier(random_state=42, n_estimators=55, max_depth=13).fit(X,y) #KNeighborsClassifier(n_neighbors=k, weights='distance').fit(X, y)
             
             y_pred = self.knn.predict(X)
             probs = self.knn.predict_proba(X)
@@ -73,32 +76,33 @@ class LinPauNonRigidTracker(Masker):
             for l in labels_foreground:
                 self.prev_target[segments_quick == l] = 255
 
-            plt.imshow(prob_map, cmap='hot')
-            plt.show()
+            #plt.imshow(prob_map, cmap='hot')
+            #plt.show()
         else:
             X , _ = self.extractFeatures(frame, segments_quick, labels_foreground=[])
             probs = self.knn.predict_proba(X)
 
             labels , areas = np.unique(segments_quick, return_counts=True)
-            prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
-            for i , label in enumerate(labels):
-                prob_map[segments_quick == label] = probs[i, 1] * 255
-            plt.imshow(prob_map, cmap='hot')
-            plt.show()
+            #prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
+            #for i , label in enumerate(labels):
+            #    prob_map[segments_quick == label] = probs[i, 1] * 255
+            #plt.imshow(prob_map, cmap='hot') 
+            #plt.show()
 
             #candidates = self.getCandidatesBBox(frame, segments_quick) 
-            candidates = self.getPrimCandidates(frame, segments_quick)
-
-
+            candidates = self.getPrimCandidates(frame, segments_quick).astype(np.uint16)
             """
             temporary patch
-            """
+            
             c = []
             for candidate in candidates:
                 tmp2 = np.zeros(candidate.shape, dtype=np.uint8)
                 tmp2[np.nonzero(candidate == True)] = segments_quick[np.nonzero(candidate == True)]
                 c.append(tmp2)
             candidates = c
+            """
+
+            #TODO: Fix label of segmets starting at 0
 
             similarity = [] #similarity for every candidate. Eq. (2)
             motion_weights = [] #Eq. (3)
@@ -106,17 +110,18 @@ class LinPauNonRigidTracker(Masker):
                 #Eq (2)
                 tmp = 0
                 segments = np.unique(candidate)
-                for segment in segments:
-                    tmp += np.tan(probs[segment, 1]) * areas[segment]
+                for segment in segments[1:]:
+                    if segment != 0: #0 means segment not in current candidate
+                        tmp += np.tan(probs[segment, 1]) * areas[segment]
                 tmp /= len(segments)
-                similarity.append(tmp) 
+                similarity.append(tmp)
 
                 #Eq (3)
                 candidate_binary = candidate.astype(np.bool)                       
                 intersection = np.logical_and(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 union = np.logical_or(candidate_binary.reshape(-1), self.prev_target.astype(np.bool).reshape(-1))
                 iou = np.sum(intersection) / np.sum(union)
-
+                
                 center_distance = np.exp(-self.rho * self.computeDistanceFromCenters(candidate, self.prev_target))
                 motion_weights.append(iou + center_distance)            
 
@@ -127,7 +132,7 @@ class LinPauNonRigidTracker(Masker):
             sa = np.argsort(similarity * motion_weights)[-3:][::-1]
             for i in range(3):
                 cv.imshow(f"Best candidate {i}", candidates[sa[i]])
-            cv.waitKey()
+            #cv.waitKey()
 
             self.prev_target = candidates[best_candidate]
 
@@ -137,7 +142,7 @@ class LinPauNonRigidTracker(Masker):
 
 
     def getPrimCandidates(self, frame, segments):
-        res = RP(frame, 1000, segment_mask=segments)
+        res = RP(frame, 500, segment_mask=segments)
         return res
 
 
@@ -200,7 +205,12 @@ class LinPauNonRigidTracker(Masker):
         """
         Extract the HHH feature as proposed by the paper, i.e, HSV histogram for a sequence of eroded segments
         """
-        frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        tmp = np.zeros((frame.shape[0], frame.shape[1],9), dtype=np.uint8)
+        tmp[:,:,:3] = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        tmp[:,:,3:6] = frame
+        tmp[:,:,6:9] = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
+        frame = tmp
+
         X , y = [] , []
         kernel = np.ones((self.erosion_kernel_size, self.erosion_kernel_size),np.uint8) #erosion kernel. Size not specified by the paper
         num_level_erosion = self.num_level_erosion
@@ -216,7 +226,7 @@ class LinPauNonRigidTracker(Masker):
             for e in range(num_level_erosion):
                 if print_results:  axs[e, 0].imshow(segment_mask.astype(np.uint8))
 
-                segment_pixels = frame[segment_mask == True]
+                segment_pixels = frame[np.nonzero(segment_mask == True)]
                 hist , edges = np.apply_along_axis(np.histogram, axis=0, arr=segment_pixels, bins=8)
                 hist_normalized = [el / (max(el)+eps) for el in hist]
                 feature_vector = np.ravel([el.tolist() for el in hist_normalized])
@@ -237,7 +247,7 @@ class LinPauNonRigidTracker(Masker):
             segment_mask[np.nonzero(segments == b_label)] = True
 
             for e in range(num_level_erosion):
-                segment_pixels = frame[segment_mask == True]
+                segment_pixels = frame[np.nonzero(segment_mask == True)]
                 hist , edges = np.apply_along_axis(np.histogram, axis=0, arr=segment_pixels, bins=8)
                 hist_normalized = [el / (max(el)+eps) for el in hist]
                 feature_vector = np.ravel([el.tolist() for el in hist_normalized])
@@ -257,8 +267,8 @@ class LinPauNonRigidTracker(Masker):
         Return labels of segments that belong to the foreground.
         Partially contained segments are assigned to foreground if they belong for at least 70%
         to the ground truth
-        """
-        labels , counts = np.unique(segments[ground_truth == True], return_counts=True)
+        """ 
+        labels , counts = np.unique(segments[np.nonzero(ground_truth == True)], return_counts=True)
         assignements = dict(zip(labels,counts)) 
         
         #normalize by the area
@@ -267,17 +277,17 @@ class LinPauNonRigidTracker(Masker):
             assignements[key] /= counts[key]                
         
         #to show the results
-        test = np.zeros_like(segments, dtype=np.uint8)
-        for i in range(segments.shape[0]):
-            for j in range(segments.shape[1]):
-                test[i,j] = 255 if assignements.get(segments[i,j], 0) >= 0.7 else 0 #assignements[segments[i,j]] * 255
+        #test = np.zeros_like(segments, dtype=np.uint8)
+        #for i in range(segments.shape[0]):
+        #    for j in range(segments.shape[1]):
+        #        test[i,j] = 255 if assignements.get(segments[i,j], 0) >= 0.7 else 0 #assignements[segments[i,j]] * 255
 
-        show_image = cv.addWeighted(src1=cv.cvtColor(frame, cv.COLOR_BGR2GRAY), alpha=0.1, src2=test, beta=0.9, gamma=0)
-        boundaries = mark_boundaries(show_image, segments)
-        bbox_gt = np.zeros_like(frame)
-        bbox_gt[:,:,2] = ground_truth
-        cv.imshow("Superpixels", boundaries + bbox_gt) 
-        cv.waitKey(0)
+        #show_image = cv.addWeighted(src1=cv.cvtColor(frame, cv.COLOR_BGR2GRAY), alpha=0.1, src2=test, beta=0.9, gamma=0)
+        #boundaries = mark_boundaries(show_image, segments)
+        #bbox_gt = np.zeros_like(frame)
+        #bbox_gt[:,:,2] = ground_truth
+        #cv.imshow("Superpixels", boundaries + bbox_gt) 
+        #cv.waitKey(0)
         ##cv.imshow("Foreground superpixels", show_image)
 
         return np.array(list(assignements.keys()))[np.array(list(assignements.values())) >= 0.7]
@@ -295,7 +305,7 @@ class LinPauNonRigidTracker(Masker):
             tCenter = int(tm["m10"] / tm["m00"]), int(tm["m01"] / tm["m00"])
             dist = ((mCenter[0] - tCenter[0])**2 +  (mCenter[1] - tCenter[1])**2)**.5
         else:
-            print('Warning: empty mask')
+            print('Warning: empty mask!')
             dist = max(mask.shape[0], mask.shape[1]) #very high distance
         return dist
 

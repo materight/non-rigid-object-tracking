@@ -22,7 +22,7 @@ class SparseNonRigidMasker(Masker):
         self.update_mask = update_mask
         self.poly_roi = poly_roi
 
-        self.use_classification = True #to enable/disable the classification of foreground/background features
+        self.use_classification = False #to enable/disable the classification of foreground/background features
 
         self.des_prev = None
         self.mask = None
