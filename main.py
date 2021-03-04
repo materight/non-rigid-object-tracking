@@ -78,14 +78,17 @@ def drawLineROI(event, x, y, flags, params):
     fgpts = params["fgpoints"]
     bgmask = params["bgmask"]
     fgmask = params["fgmask"]
+    selection_history = params["selection_history"]
     if event == cv.EVENT_LBUTTONDOWN: 
         selectingLineBg = True
         bgpts.append([])
+        selection_history.append('bg')
     elif event == cv.EVENT_LBUTTONUP:
         selectingLineBg = False
     if event == cv.EVENT_RBUTTONDOWN:  
         selectingLineFg = True
         fgpts.append([])
+        selection_history.append('fg')
     elif event == cv.EVENT_RBUTTONUP:
         selectingLineFg = False
     elif event == cv.EVENT_MOUSEMOVE:
@@ -266,14 +269,19 @@ else:
 bgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
 fgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
 if MASKER == 'GraphCut':
-    bgline, fgline = [], []
+    bgline, fgline, selection_history = [], [], []
     cv.namedWindow('ROI-lines')
     cv.imshow('ROI-lines', smallFrame)
-    cv.setMouseCallback('ROI-lines', drawLineROI, {"image": smallFrame, "bgpoints": bgline, "fgpoints": fgline, "bgmask": bgmask, "fgmask": fgmask})
+    cv.setMouseCallback('ROI-lines', drawLineROI, {"image": smallFrame, "bgpoints": bgline, "fgpoints": fgline, "bgmask": bgmask, "fgmask": fgmask, "selection_history": selection_history})
     print("[INFO] Click left button: select background points, right button: select foreground points")
+    print("[INFO] Press c to delete the last selected segment")
     print("[INFO] Press SPACE or ENTER to quit")
     while True:
         key = cv.waitKey(0) & 0xFF
+        if key == ord('c') and len(selection_history) > 0:
+            if selection_history[-1] == 'bg': bgline.pop()
+            else: fgline.pop()
+            selection_history.pop()
         if key == ord(' ') or key == ord("\r"):  # q or enter is pressed
             cv.destroyWindow('ROI-lines')
             break
@@ -298,6 +306,8 @@ for i, bbox in enumerate(bboxes):
                                    frame=smallFrame,
                                    bbox=bbox,
                                    poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None,
+                                   bgmask=bgmask, 
+                                   fgmask=fgmask,
                                    update_mask=loadeddict.get('update_mask')
                                    ))
 
@@ -393,7 +403,7 @@ while (1):
                 histo[i] = hist_2
             # RE-INITIALIZATION END
             
-            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, bgmask=bgmask, fgmask=fgmask, color=colors[i])
+            maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
