@@ -23,7 +23,7 @@ def getMaskerByName(name, **args):
         return SemiSupervisedNonRigidMasker(**args)
     if name == "SemiSupervisedTracker":
         return SemiSupervisedTracker(**args)
-    if name == "LinPau":
+    if name == "LinPuntracker":
         return LinPauNonRigidTracker(**args)
     if name == "GraphCut":
         return GraphCut(**args)

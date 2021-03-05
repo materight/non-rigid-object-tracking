@@ -45,11 +45,8 @@ class LinPauNonRigidTracker(Masker):
 
 
     def update(self, frame):
-        if self.index == 3:
-            return
-
-        segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
-        #segments_quick = felzenszwalb(frame, scale=100, sigma=0.5, min_size=50)
+        #segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
+        segments_quick = felzenszwalb(frame, scale=100, sigma=0.5, min_size=50)
         #gradient = sobel(rgb2gray(frame))
         #segments_quick = watershed(gradient, markers=250, compactness=0.001)
         #segments_quick = slic(frame)
@@ -131,7 +128,7 @@ class LinPauNonRigidTracker(Masker):
 
             sa = np.argsort(similarity * motion_weights)[-3:][::-1]
             for i in range(3):
-                cv.imshow(f"Best candidate {i}", candidates[sa[i]])
+                cv.imshow(f"Best candidate {i}", candidates[sa[i]].astype(np.uint8))
             #cv.waitKey()
 
             self.prev_target = candidates[best_candidate]
