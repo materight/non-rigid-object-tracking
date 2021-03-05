@@ -167,7 +167,7 @@ histo = []
 # Set output video
 fourcc = cv.VideoWriter_fourcc(*'DIVX')
 out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
-out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps, smallFrame.shape[1::-1])
+out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
 points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
 
 
@@ -356,7 +356,7 @@ while (1):
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
-        maskedFrame = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
+        maskedFrame = np.zeros_like(smallFrame, dtype=np.uint8) #to have the output mask red, compile only the last channel of the last dimension
         ok, boxes = multiTracker.update(smallFrame)
 
         if loadeddict.get('masker') in loadeddict.get('custom_trackers'):
@@ -412,7 +412,7 @@ while (1):
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
-                benchmarkDist.append(computeBenchmark(maskedFrame, truthFrame))
+                benchmarkDist.append(computeBenchmark(maskedFrame[:,:,2], truthFrame))
 
             if DEBUG:
                 # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
@@ -434,9 +434,7 @@ while (1):
 
         if 1: #index > 50:
             out.write(smallFrame)  # Save video frame by frame
-            masked_image = cv.addWeighted(src1=smallFrame, alpha=0.6, src2=cv.cvtColor(maskedFrame, cv.COLOR_GRAY2RGB), beta=0.4, gamma=0)
-            out_mask.write(masked_image)  # Save masked video
-            out_mask.write(masked_image)
+            out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
