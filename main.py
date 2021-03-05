@@ -121,7 +121,7 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
