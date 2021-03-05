@@ -49,7 +49,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         
             assert (self.poly_roi is None) or (crop_frame.shape[:2] == self.mask.shape)
             #X , y = self.getRGBFeatures(crop_frame)
-            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=True)
+            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, self.prevBbox, train=True)
             X_nroi , y_nroi = self.getRONI(frame)
 
             X = np.concatenate([X, X_nroi], axis=0)
@@ -131,7 +131,17 @@ class SemiSupervisedNonRigidMasker(Masker):
             plt.show()
         else:
             enlarge_bbox = 20
-            crop_frame = frame[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])]
+            bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox )
+            
+            #crop_frame = frame[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])]
+            crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+
+            #cv.imshow("q", crop_frame)
+            #cv.imshow("q2", crop_frame2)
+            #cv.waitKey()
+
+
+
             X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
             X = X / 255 
 
@@ -140,6 +150,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
             sa = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()
             error[error <= self.pca_threshold] = 0 
+            error[error > self.pca_threshold] = 255
             cv.imshow("PCA", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
 
             segments_quick = quickshift(crop_frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
@@ -161,13 +172,15 @@ class SemiSupervisedNonRigidMasker(Masker):
             for key in segment_probs.keys():
                 segment_probs[key] /= areas[key] 
                 segment_probs_pca[key] /= areas[key] 
+                
                 idxs = np.nonzero(segments_quick == key)
                 prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
                 prob_map_pca[idxs] = 255 if segment_probs_pca[key] > 0.5 else 0
             cv.imshow("Prob. map superpixels", prob_map)
             cv.imshow("Prob. map superpixels with PCA", prob_map_pca)
 
-            mask[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])] = prob_map[:,:]
+            #mask[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])] = prob_map[:,:]
+            mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = prob_map[:,:]
 
             #prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
             #c = 0
@@ -296,8 +309,8 @@ class SemiSupervisedNonRigidMasker(Masker):
         Return RGB values of the 4-neighboorood along with the central pixel's values
         """
         #crop_frame = cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB)
-        sobelx = cv.Sobel(frame, cv.CV_8U,1,0,ksize=3)
-        sobely = cv.Sobel(frame, cv.CV_8U,0,1,ksize=3)
+        #sobelx = cv.Sobel(frame, cv.CV_8U, 1, 0, ksize=3)
+        #sobely = cv.Sobel(frame, cv.CV_8U, 0, 1, ksize=3)
 
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frame_lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
@@ -308,19 +321,20 @@ class SemiSupervisedNonRigidMasker(Masker):
                 features = []
                 features.extend(frame_hsv[i,j].tolist())
                 features.extend(frame_lab[i,j].tolist())
-                features.extend(sobelx[i,j].tolist())
-                features.extend(sobely[i,j].tolist())
+                #features.extend(sobelx[i,j].tolist())
+                #features.extend(sobely[i,j].tolist())
                 for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1),
-                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2)]:
+                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2),
+                              (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3) , (-3,-3), (+3,-3), (-3,+3)]:
                     neighbor = (i + span[0] , j + span[1])
-                    if (neighbor[0] >= bbox[1] and neighbor[0] <= bbox[1] + bbox[3] and
-                       neighbor[1] >= bbox[0] and neighbor[1] <= bbox[0] + bbox[2]):
+                    if (neighbor[0] >= 0 and neighbor[0] < frame.shape[0] and
+                       neighbor[1] >= 0 and neighbor[1] < frame.shape[1]):
                         features.extend(frame_hsv[neighbor[0], neighbor[1]].tolist())
                         features.extend(frame_lab[neighbor[0], neighbor[1]].tolist())
-                        features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
-                        features.extend(sobely[neighbor[0], neighbor[1]].tolist())
+                        #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
+                        #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
                     else:
-                        features.extend([-1, -1, -1])
+                        features.extend([-1]*6 )
                         
                 if train and self.mask[i,j] > 0:
                     y_pos.append(1)

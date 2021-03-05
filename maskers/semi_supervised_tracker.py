@@ -24,9 +24,9 @@ import math
 
 import pandas as pd
 
-class LinPauNonRigidTracker(Masker):
+class SemiSupervisedTracker(Masker):
     """
-    Implementation of https://www.researchgate.net/publication/302065250_Highly_non-rigid_video_object_tracking_using_segment-based_object_candidates
+    Algorithm similar to the SemiSupervised masker, but run on the entire frame, without the tracker. 
     """
 
     def __init__(self, poly_roi=None, update_mask=None, **args):
@@ -65,18 +65,14 @@ class LinPauNonRigidTracker(Masker):
             labels_foreground = self.getForegroundSegments(segments_quick, self.ground_truth, frame)
             X , y = self.extractFeatures(frame, segments_quick, labels_foreground)
 
-            self.pca = PCA(n_components=5).fit(X[y == 1])
+            self.pca = PCA(n_components=1).fit(X[y == 1])
             X_pca = self.pca.transform(X)
             X_inv = self.pca.inverse_transform(X_pca)
 
             error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
-            error = error/max(error)
             print(pd.DataFrame(error).describe())
-            sa = error.reshape(segments_quick.shape) #np.zeros_like(segments_quick, dtype=n.uint8)
-            
-            plt.imshow(sa)
-            plt.show()
-
+            sa = error.reshape(segments_quick.shape) #np.zeros_like(segments_quick, dtype=n.uint8) 
+            self.pca_threshold = np.percentile(error, 85)
 
             #parameters = {
             #    "n_estimators": [5, 10, 20, 70],
@@ -114,44 +110,32 @@ class LinPauNonRigidTracker(Masker):
             X_inv = self.pca.inverse_transform(X_pca)
 
             error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
-            error = error / max(error)
-            error[error <= 0.5] = 0 
-            sa = error.reshape(segments_quick.shape)
-            cv.imshow("PCA", sa)
+            sa = error.reshape(frame.shape[0], frame.shape[1]).copy()
+            error[error <= self.pca_threshold] = 0 
+            cv.imshow("PCA", error.reshape(frame.shape[0], frame.shape[1]))
 
-            labels , areas = np.unique(segments_quick, return_counts=True)
-            prob_map = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
+            _ , areas = np.unique(segments_quick, return_counts=True)
             segment_probs = defaultdict(float)
-            segment_probs2 = defaultdict(float)
+            segment_probs_pca = defaultdict(float)
             c = 0
-            for i in range(prob_map.shape[0]):
-                for j in range(prob_map.shape[1]):
-                    #prob_map[i, j] = probs[c, 1] * 255
-                    if sa[i,j] <= 0.5:
-                        segment_probs2[segments_quick[i,j]] += probs[c, 1]
+            for i in range(frame.shape[0]):
+                for j in range(frame.shape[1]):
+                    segment_probs_pca[segments_quick[i,j]] += probs[c, 1] - (max(sa[i,j], self.pca_threshold) - self.pca_threshold)
                     segment_probs[segments_quick[i,j]] += probs[c, 1]
                     c += 1
 
-            steve = np.zeros_like(segments_quick, dtype=np.uint8)
-            steve2 = np.zeros_like(segments_quick, dtype=np.uint8)
+            prob_map = np.zeros_like(segments_quick, dtype=np.uint8)
+            prob_map_pca = np.zeros_like(segments_quick, dtype=np.uint8)
             for key in segment_probs.keys():
                 segment_probs[key] /= areas[key] #compute average of probs for every segment
-                segment_probs2[key] /= areas[key] 
-                if segment_probs[key] > 0.5:
-                    val = 255
-                #elif segment_probs[key] > 0.4:
-                #    val = 125
-                else:
-                    val = 0
-                steve[np.nonzero(segments_quick == key)] = val
-                steve2[np.nonzero(segments_quick == key)] = 255 if segment_probs2[key] > 0.5 else 0
+                segment_probs_pca[key] /= areas[key]
 
-            #plt.imshow(prob_map, cmap='hot') 
-            #plt.show()
-            cv.imshow("Prob. map", steve)
-            cv.imshow("Prob. map PCA", steve2)
+                idxs = np.nonzero(segments_quick == key) 
+                prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
+                prob_map_pca[idxs] = 255 if segment_probs_pca[key] > 0.5 else 0
 
-            
+            cv.imshow("Prob. map", prob_map)
+            cv.imshow("Prob. map PCA", prob_map_pca)            
 
             """
             #candidates = self.getCandidatesBBox(frame, segments_quick) 
