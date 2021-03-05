@@ -90,6 +90,8 @@ class SemiSupervisedNonRigidMasker(Masker):
             plt.show()"""
 
             plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
+            plt.title(r"$F_1$ score = {}".format(f1))
+            plt.axis('off')
             plt.show()
         elif 0: #c == 170: REINIT THE CLASSIFIER. TO BE COMPLETED
             self.defineNewMask(bbox, frame)
@@ -149,45 +151,45 @@ class SemiSupervisedNonRigidMasker(Masker):
             X_inv = self.pca.inverse_transform(X_pca)
             error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
             sa = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()
-            error[error <= self.pca_threshold] = 0 
-            error[error > self.pca_threshold] = 255
-            cv.imshow("PCA", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
+            #error[error <= self.pca_threshold] = 0 
+            #error[error > self.pca_threshold] = 255
+            #cv.imshow("PCA", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
 
             segments_quick = quickshift(crop_frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
             _ , areas = np.unique(segments_quick, return_counts=True)
 
             probs = self.knn.predict_proba(X)
 
-            segment_probs = defaultdict(float)
+            #segment_probs = defaultdict(float)
             segment_probs_pca = defaultdict(float)
             c = 0
             for i in range(crop_frame.shape[0]):
                 for j in range(crop_frame.shape[1]):
-                    segment_probs[segments_quick[i,j]] += probs[c, 1]
+                    #segment_probs[segments_quick[i,j]] += probs[c, 1]
                     segment_probs_pca[segments_quick[i,j]] += probs[c, 1] - (max(sa[i,j], self.pca_threshold) - self.pca_threshold)
                     c += 1
 
-            prob_map = np.zeros_like(segments_quick, dtype=np.uint8)
+            #prob_map = np.zeros_like(segments_quick, dtype=np.uint8)
             prob_map_pca = np.zeros_like(segments_quick, dtype=np.uint8)
-            for key in segment_probs.keys():
-                segment_probs[key] /= areas[key] 
+            for key in segment_probs_pca.keys():
+                #segment_probs[key] /= areas[key] 
                 segment_probs_pca[key] /= areas[key] 
                 
                 idxs = np.nonzero(segments_quick == key)
-                prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
+                #prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
                 prob_map_pca[idxs] = 255 if segment_probs_pca[key] > 0.5 else 0
-            cv.imshow("Prob. map superpixels", prob_map)
+            #cv.imshow("Prob. map superpixels", prob_map)
             cv.imshow("Prob. map superpixels with PCA", prob_map_pca)
 
             #mask[max(bbox[1]-enlarge_bbox,0):min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0]), max(bbox[0]-enlarge_bbox,0):min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])] = prob_map[:,:]
-            mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = prob_map[:,:]
+            mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = prob_map_pca[:,:]
 
             #prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
             #c = 0
             #for i in range(prob_map.shape[0]):
             #    for j in range(prob_map.shape[1]):
-            #        prob_map[i, j] = 255  if probs[c, 1] >= 0.6 and sa[i,j] <= 0.3 else 0
-            #        c += 1 #TODO: infer c from i and j
+            #        prob_map[i, j] = probs[c, 1] * 255
+            #        c += 1
             #cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
             
             #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
