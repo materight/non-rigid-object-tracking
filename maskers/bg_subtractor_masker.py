@@ -8,7 +8,7 @@ class BackgroundSubtractorMasker(Masker):
     def __init__(self, poly_roi, **args):
         Masker.__init__(self, **args)
 
-        self.kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+        self.kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
 
         self.subType = 'KNN'
         if self.subType == 'KNN':
@@ -34,6 +34,7 @@ class BackgroundSubtractorMasker(Masker):
 
         # Apply erosion followed by dilation to remove noise, and extract contours
         fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
+        fgMask = cv.morphologyEx(fgMask, cv.MORPH_CLOSE, self.kernel)
 
         # Extract mask in polygon and apply threshold
         m = np.zeros_like(fgMask)

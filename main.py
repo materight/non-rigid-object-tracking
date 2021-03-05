@@ -268,7 +268,7 @@ else:
 # Select background and foreground points
 bgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
 fgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
-if MASKER == 'GraphCut':
+if False: # MASKER == 'GrabCut':
     bgline, fgline, selection_history = [], [], []
     cv.namedWindow('ROI-lines')
     cv.imshow('ROI-lines', smallFrame)

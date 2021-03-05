@@ -13,5 +13,5 @@ input_video: output/Video/SegTrack2/Video/soldier.mp4
 input_truth: output/Video/SegTrack2/Truth/soldier.mp4 # Can be null
 input_image_homography: sources/Map/basket_field.jpg
 
-masker: GraphCut
+masker: GrabCut
 update_mask: False
