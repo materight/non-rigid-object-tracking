@@ -360,7 +360,7 @@ while (1):
         ok, boxes = multiTracker.update(smallFrame)
 
         if loadeddict.get('masker') in loadeddict.get('custom_trackers'):
-            maskers[0].update(frame=smallFrame)
+            maskers[0].update(frame=smallFrame, mask=maskedFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
