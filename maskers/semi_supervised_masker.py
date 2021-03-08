@@ -17,6 +17,8 @@ from .masker import Masker
 import pandas as pd
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 
+from numba import jit
+
 
 class SemiSupervisedNonRigidMasker(Masker):
     def __init__(self, poly_roi=None, update_mask=None, **args):
@@ -49,7 +51,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         
             assert (self.poly_roi is None) or (crop_frame.shape[:2] == self.mask.shape)
             #X , y = self.getRGBFeatures(crop_frame)
-            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, self.prevBbox, train=True)
+            X , y = self.getRGBFeaturesWithNeighbors(crop_frame, self.prevBbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), self.mask,  train=True)
             X_nroi , y_nroi = self.getRONI(frame)
 
             X = np.concatenate([X, X_nroi], axis=0)
@@ -144,7 +146,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
 
 
-            X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
+            X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), self.mask, train=False)
             X = X / 255 
 
             X_pca = self.pca.transform(X)
@@ -272,7 +274,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
         bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, train=False)
+        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), self.mask, train=False)
         return X , y
 
 
@@ -306,7 +308,9 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         return X , y
 
-    def getRGBFeaturesWithNeighbors(self, frame, bbox, train=False):
+    @staticmethod
+    @jit(nopython=True)
+    def getRGBFeaturesWithNeighbors(frame, bbox, frame_hsv, frame_lab, mask, train=False):
         """
         Return RGB values of the 4-neighboorood along with the central pixel's values
         """
@@ -314,41 +318,40 @@ class SemiSupervisedNonRigidMasker(Masker):
         #sobelx = cv.Sobel(frame, cv.CV_8U, 1, 0, ksize=3)
         #sobely = cv.Sobel(frame, cv.CV_8U, 0, 1, ksize=3)
 
-        frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-        frame_lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
+        #frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        #rame_lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
 
-        X_pos , X_neg , y_pos , y_neg = [] , [] , [] , []
-        for i in range(frame.shape[0]):
+        X_pos , X_neg , y_pos , y_neg = [[-1]*(6+6*8*3)] , [[-1]*(6+6*8*3)] , [1] , [1] #just to allow Numbe to infer the type of the list. Will be later removed
+        for i in range(frame.shape[0]): 
             for j in range(frame.shape[1]):
-                features = []
-                features.extend(frame_hsv[i,j].tolist())
-                features.extend(frame_lab[i,j].tolist())
+                features = [] 
+                features.extend(list(frame_hsv[i,j]))
+                features.extend(list(frame_lab[i,j]))
                 #features.extend(sobelx[i,j].tolist())
                 #features.extend(sobely[i,j].tolist())
-                for span in [(-1,0), (+1,0), (0,-1), (0,+1),(+1,+1) , (-1,-1), (+1,-1), (-1,+1),
-                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2) , (-2,-2), (+2,-2), (-2,+2),
-                              (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3) , (-3,-3), (+3,-3), (-3,+3)]:
+                for span in ((-1,0), (+1,0), (0,-1), (0,+1),(+1,+1), (-1,-1), (+1,-1), (-1,+1),
+                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2), (-2,-2), (+2,-2), (-2,+2),
+                             (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3), (-3,-3), (+3,-3), (-3,+3)):
                     neighbor = (i + span[0] , j + span[1])
                     if (neighbor[0] >= 0 and neighbor[0] < frame.shape[0] and
                        neighbor[1] >= 0 and neighbor[1] < frame.shape[1]):
-                        features.extend(frame_hsv[neighbor[0], neighbor[1]].tolist())
-                        features.extend(frame_lab[neighbor[0], neighbor[1]].tolist())
+                        features.extend(list(frame_hsv[neighbor[0], neighbor[1]]))
+                        features.extend(list(frame_lab[neighbor[0], neighbor[1]]))
                         #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
                         #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
                     else:
-                        features.extend([-1]*6 )
+                        features.extend([-1]*6)
                         
-                if train and self.mask[i,j] > 0:
+                if train and mask[i,j] > 0:
                     y_pos.append(1)
                     X_pos.append(features)
                 else:
                     y_neg.append(0)
                     X_neg.append(features)
-        
         X = X_pos + X_neg
         y = y_pos + y_neg
-        X = np.array(X, dtype=np.int16)
-        y = np.array(y, dtype=np.uint8)
+        X = np.array(X[2:], dtype=np.int16)
+        y = np.array(y[2:], dtype=np.uint8)
         return X , y
 
 """
