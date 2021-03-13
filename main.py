@@ -124,7 +124,7 @@ def returnIntersection(hist_1, hist_2):
 DEBUG = True
 SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 
 WINDOW_HEIGHT = 700
@@ -251,6 +251,7 @@ else:
                                         debug=DEBUG,
                                         frame=smallFrame,
                                         bbox=bbox,
+                                        config=loadeddict,
                                         poly_roi=poly_roi[n_target][0] if POLYNOMIAL_ROI else None, 
                                         update_mask=loadeddict.get('update_mask')
                                         ))
@@ -306,7 +307,8 @@ multiTracker = cv.legacy.MultiTracker_create()
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
 for n_target in range(len(bboxes)):
-    multiTracker.add(createTracker(TRACKER), smallFrame, bboxes[n_target][0])
+    bbox = bboxes[n_target][0]
+    multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
     y_sequences.append([])
 

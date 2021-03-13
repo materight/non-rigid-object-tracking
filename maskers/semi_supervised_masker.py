@@ -35,6 +35,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         self.models = []
         self.novelty_det = []
         self.current_model = 0
+        self.multi_selection = self.config.get("multi_selection")
 
         #if self.poly_roi:  # convert the list of points into a binary map
         #    for i in range(len(self.poly_roi)):  # adapt coordinates
@@ -94,7 +95,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         
         probs_curr_model = self.models[self.current_model]["model"].predict_proba(X)
-        if len(self.models) > self.current_model + 1: #there is a future model
+        if self.multi_selection and len(self.models) > self.current_model + 1: #there is a future model
             probs_future_model = self.models[self.current_model+1]["model"].predict_proba(X)
             probs = np.mean([probs_curr_model, probs_future_model], axis=0)
         else:
@@ -135,7 +136,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         #plt.show()
 
         self.index += 1
-        if len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
+        if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
             self.current_model += 1
             print("\n \n CHANGE OF MODEL \n \n")
             return self.current_model #to flag the re-initialization also of the tracker
