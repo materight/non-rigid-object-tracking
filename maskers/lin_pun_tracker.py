@@ -44,7 +44,7 @@ class LinPauNonRigidTracker(Masker):
             self.ground_truth = self.ground_truth.astype(np.bool)
 
 
-    def update(self, frame):
+    def update(self, frame, mask):
         #segments_quick = quickshift(frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
         segments_quick = felzenszwalb(frame, scale=100, sigma=0.5, min_size=50)
         #gradient = sobel(rgb2gray(frame))
@@ -132,6 +132,7 @@ class LinPauNonRigidTracker(Masker):
             #cv.waitKey()
 
             self.prev_target = candidates[best_candidate]
+            mask[:,:, 2] = candidates[best_candidate]
 
             #cv.imshow("Best candidate", candidates[best_candidate])
 

@@ -191,19 +191,7 @@ if MANUAL_ROI_SELECTION:
         print("[INFO] Press q or ESC to quit")
     while True:
         if POLYNOMIAL_ROI:
-            #key = cv.waitKey(1) & 0xFF
-            # if key == ord('q') or key == 27:
-            #    cv.destroyWindow('ROI')
-            #    break
-            """if key == ord("s"):
-                print("[INFO] ROI coordinates:", pts)
-                if len(pts) >= 3:
-                    #self.poly_roi.append(pts[0])
-                    poly_roi.append(pts)
-                    bbox = cv.boundingRect(np.array(pts)) #extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
-                    pts = []
-                else:
-                    print("Not enough points selected")  """
+            pass
         else:
             bbox = cv.selectROI('ROI', smallFrame, False)
             if bbox == (0, 0, 0, 0):  # no box selected
@@ -211,7 +199,7 @@ if MANUAL_ROI_SELECTION:
                 break
             print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
 
-        if bbox:  # because the callback of the mouse doesn not block the main thread
+        if bbox:  # because the callback of the mouse does not block the main thread
             crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
             hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
             histo.append(hist_1)
@@ -249,8 +237,8 @@ else:
     [(170, 67), (182, 60), (201, 62), (219, 65), (227, 64), (237, 66), (219, 87), (209, 100), (196, 111), (198, 98), (188, 82), (173, 76)]
     Example for soldier.mp4
     [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)]
-
     """
+
     if POLYNOMIAL_ROI:
         pts =  [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)]
         for i, _ in enumerate(pts): pts[i] = (pts[i][0], pts[i][1])
@@ -361,7 +349,7 @@ while (1):
         ok, boxes = multiTracker.update(smallFrame)
 
         if loadeddict.get('masker') in loadeddict.get('custom_trackers'):
-            maskers[0].update(frame=smallFrame)
+            maskers[0].update(frame=smallFrame, mask=maskedFrame)
 
         # Update position of the bounding box
         for i, newbox in enumerate(boxes):
@@ -450,6 +438,15 @@ points.release()
 cv.destroyAllWindows()
 end = time.time()
 print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
+
+# Show outlier scores
+plt.plot(maskers[0].scores)
+plt.xlabel("Number of Frame")
+plt.ylabel("Score")
+plt.title("Outlier score distribution")
+plt.tight_layout()
+plt.show()
+
 
 # Show benchmark
 plt.plot(benchmarkDist)
