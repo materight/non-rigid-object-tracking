@@ -45,7 +45,7 @@ def drawPolyROI(event, x, y, flags, params):
     img2 = params["image"].copy()
 
     if event == cv.EVENT_LBUTTONDOWN:  # Left click, select point
-        pts.append((x, y))
+        pts.append([x, y])
     if event == cv.EVENT_RBUTTONDOWN:  # Right click to cancel the last selected point
         pts.pop()
     if event == cv.EVENT_MBUTTONDOWN:  # Central button to display the polygonal mask
@@ -62,11 +62,11 @@ def drawPolyROI(event, x, y, flags, params):
         cv.waitKey(0)
         cv.destroyWindow("ROI inspection")
     if len(pts) > 0:  # Draw the last point in pts
-        cv.circle(img2, pts[-1], 3, (0, 0, 255), -1)
+        cv.circle(img2, (pts[-1][0], pts[-1][1]), 3, (0, 0, 255), -1)
     if len(pts) > 1:
         for i in range(len(pts) - 1):
-            cv.circle(img2, pts[i], 4, (0, 0, 255), -1)  # x ,y is the coordinates of the mouse click place
-            cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=1)
+            cv.circle(img2, (pts[i][0], pts[i][1]), 4, (0, 0, 255), -1)  # x ,y is the coordinates of the mouse click place
+            cv.line(img=img2, pt1=(pts[i][0], pts[i][1]), pt2=(pts[i+1][0], pts[i+1][1]), color=(255, 0, 0), thickness=1)
     cv.imshow('ROI', img2)
 
 selectingLineBg, selectingLineFg = False, False
@@ -184,110 +184,135 @@ points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape
 #   |_|  |_/_/    \_\_____|_| \_|
 
 
-if MANUAL_ROI_SELECTION:
-    bbox = None
+if not MANUAL_ROI_SELECTION:
     if POLYNOMIAL_ROI:
-        pts = []
-        cv.namedWindow('ROI')
-        cv.imshow('ROI', smallFrame)
-        cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
-        print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
-        print("[INFO] Press ENTER to determine the selection area and save it")
-        print("[INFO] Press q or ESC to quit")
-    while True:
-        if POLYNOMIAL_ROI:
-            pass
-        else:
-            bbox = cv.selectROI('ROI', smallFrame, False)
-            if bbox == (0, 0, 0, 0):  # no box selected
-                cv.destroyWindow('ROI')
-                break
-            print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
+        poly_roi =  loadeddict.get('pts')
+        poly_roi_frame_number =  loadeddict.get('pts_frame_numbers')
+        for n_target , target_selection in enumerate(poly_roi): #iterate over targets
+            bboxes.append([])
+            maskers.append(getMaskerByName(loadeddict.get('masker'),
+                            debug=DEBUG,
+                            frame=None, #smallFrame,   used by supervised_masker
+                            bbox=None,  #bbox,
+                            config=loadeddict,
+                            poly_roi=poly_roi[n_target][0] if POLYNOMIAL_ROI else None, 
+                            update_mask=loadeddict.get('update_mask')
+                            ))
+            for n_selection , frame_selection in enumerate(target_selection): #iterate masks over time for a single target
+                bbox = cv.boundingRect(np.array(frame_selection))
+                bboxes[-1].append(bbox)
 
-        if bbox:  # because the callback of the mouse does not block the main thread
-            crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-            hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-            histo.append(hist_1)
-            bboxes.append(bbox)
-            colors.append(colorutils.pickNewColor(color_names_used))
-            bbox = None
-        else:
-            time.sleep(0.2)
+                crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+                hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+                histo.append(hist_1)
+                
+                colors.append(colorutils.pickNewColor(color_names_used))
+                
+                #read the frame where the selection was made, to train the model
+                cap.set(cv.CAP_PROP_POS_FRAMES, poly_roi_frame_number[n_selection])
+                ok , frame = cap.read()
+                if not ok: exit("Fatal error!")
+                smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 
-        key = cv.waitKey(0) & 0xFF
-        if (key == ord('q')):  # q is pressed
-            cv.destroyWindow('ROI')
-            break
-        if POLYNOMIAL_ROI and key == ord("\r"):
-            print("[INFO] ROI coordinates:", pts)
-            if len(pts) >= 3:
-                # self.poly_roi.append(pts[0])
-                poly_roi.append(pts)
-                bbox = cv.boundingRect(np.array(pts))  # extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
-                pts = []
-            else:
-                print("Not enough points selected")
-else:
-    """
-    Example bounding boxes for clip3.mp4
-    For RESIZE_FACTOR=0.25 -> [(205, 280, 22, 42), (543, 236, 17, 38), (262, 270, 16, 33), (722, 264, 21, 47)]
-    For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]
-
-    Example poly_roi for clip3.mp4
-    [(735, 499), (747, 512), (759, 528), (762, 547), (773, 569), (768, 572), (753, 551), (747, 575), (738, 575), (739, 533), (731, 527), (730, 504)]
-    [(952, 443), (955, 452), (957, 467), (957, 483), (963, 494), (962, 504), (956, 507), (946, 492), (940, 507), (930, 505), (930, 495), (935, 483), (938, 469), (938, 458), (943, 440)]
-    Example for dino.mp4
-    [(187, 21), (193, 21), (198, 24), (200, 37), (207, 28), (213, 23), (222, 21), (232, 24), (237, 26), (239, 35), (237, 44), (239, 52), (246, 61), (253, 63), (247, 71), (235, 63), (229, 61), (223, 59), (220, 65), (217, 72), (214, 78), (209, 77), (207, 74), (212, 67), (210, 58), (204, 54), (198, 53), (190, 52), (191, 46), (190, 38), (190, 30), (184, 26)]
-    Example for frog.mp4
-    [(170, 67), (182, 60), (201, 62), (219, 65), (227, 64), (237, 66), (219, 87), (209, 100), (196, 111), (198, 98), (188, 82), (173, 76)]
-    Example for soldier.mp4
-    [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)]
-    """
-
-    if POLYNOMIAL_ROI:
-        pts =  [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)]
-        for i, _ in enumerate(pts): pts[i] = (pts[i][0], pts[i][1])
-        poly_roi.append(pts)
-        bbox = cv.boundingRect(np.array(pts))
-        example_bboxes = [bbox]
+                maskers[n_target].add_model(frame=smallFrame, poly_roi=poly_roi[n_target][n_selection], bbox=bbox, n_frame=poly_roi_frame_number[n_selection])
     else:
-        example_bboxes = [(725, 495, 53, 82)]
+        exit("HANDLE THIS")
+else:
+    video_length = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+    frame_to_init = int(video_length / loadeddict.get('re_init_span')) #ask for a selection every frame_to_init
+    poly_roi_frame_number = []
+    k = 0
+    while ok:
+        if (k % frame_to_init) == 0:
+            print("[INFO] Selection n° {}/{}".format(int(k / frame_to_init), loadeddict.get('re_init_span')))
+            poly_roi_frame_number.append(k)
+            n_target = 0            
+            bbox = None
+            if POLYNOMIAL_ROI:
+                pts = []
+                cv.namedWindow('ROI')
+                cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
+                print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
+                print("[INFO] Press ENTER to determine the selection area and save it")
+                print("[INFO] Press q or ESC to quit")
+            stop = False
+            while not stop:
+                if POLYNOMIAL_ROI:
+                    pass
+                else:
+                    bbox = cv.selectROI('ROI', smallFrame, False)
+                    if bbox == (0, 0, 0, 0):  # no box selected
+                        cv.destroyWindow('ROI')
+                        bbox = None
+                        stop = True
+                    print('[INFO] Press q to quit selecting boxes and start tracking, or any other key to select next object')
 
-    for bbox in example_bboxes:
-        crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-        histo.append(hist_1)
-        bboxes.append(bbox)
-        colors.append(colorutils.pickNewColor(color_names_used))
+                if bbox:  # because the callback of the mouse does not block the main thread
+                    crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
+                    if k < frame_to_init: #first iteration, bboxes is still equal to [] 
+                        bboxes.append([])
+                        #now init a masker for every target in the first selection. For the subsequent selections, I'll call a method for fitting the multiple models
+                        maskers.append(getMaskerByName(loadeddict.get('masker'),
+                                        debug=DEBUG,
+                                        frame=smallFrame,
+                                        bbox=bbox,
+                                        config=loadeddict,
+                                        poly_roi=poly_roi[n_target][0] if POLYNOMIAL_ROI else None, 
+                                        update_mask=loadeddict.get('update_mask')
+                                        ))
+                    if n_target >= len(bboxes):
+                        print("[ERROR] The number of selection can not be great to the number of selections at the first frame")
+                    else:
+                        bboxes[n_target].append(bbox)
+                        colors.append(colorutils.pickNewColor(color_names_used))
+                        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
+                        histo.append(hist_1)
+                        maskers[n_target].add_model(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
+                        bbox = None
+                        n_target += 1
+                else:
+                    time.sleep(0.2)
 
-# Select background and foreground points
-bgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
-fgmask = np.zeros(smallFrame.shape[:2], dtype=np.uint8)
-if False: # MASKER == 'GrabCut':
-    bgline, fgline, selection_history = [], [], []
-    cv.namedWindow('ROI-lines')
-    cv.imshow('ROI-lines', smallFrame)
-    cv.setMouseCallback('ROI-lines', drawLineROI, {"image": smallFrame, "bgpoints": bgline, "fgpoints": fgline, "bgmask": bgmask, "fgmask": fgmask, "selection_history": selection_history})
-    print("[INFO] Click left button: select background points, right button: select foreground points")
-    print("[INFO] Press c to delete the last selected segment")
-    print("[INFO] Press SPACE or ENTER to quit")
-    while True:
-        key = cv.waitKey(0) & 0xFF
-        if key == ord('c') and len(selection_history) > 0:
-            if selection_history[-1] == 'bg': bgline.pop()
-            else: fgline.pop()
-            selection_history.pop()
-        if key == ord(' ') or key == ord("\r"):  # q or enter is pressed
-            cv.destroyWindow('ROI-lines')
-            break
+                key = cv.waitKey(0) & 0xFF
+                if (key == ord('q')):  # q is pressed
+                    cv.destroyWindow('ROI')
+                    stop = True
+                if POLYNOMIAL_ROI and key == ord("\r"):
+                    print("[INFO] ROI coordinates:", pts)
+                    if len(pts) >= 3:
+                        # self.poly_roi.append(pts[0])
+                        if k < frame_to_init:
+                            poly_roi.append([])
+                        if n_target >= len(poly_roi):
+                            print("[ERROR] The number of selection can not be great to the number of selections at the first frame")
+                        else:
+                            poly_roi[n_target].append(pts)
+                        bbox = cv.boundingRect(np.array(pts))  # extract the minimal Rectangular that fit the polygon just selected. This because Tracking algos work with rect. bbox
+                        pts = []
+                    else:
+                        print("Not enough points selected")
+        k += 1
+        ok, frame = cap.read()
+        if ok:
+            smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+    
+print('Selected poly roi: {}\n'.format(poly_roi))
+if poly_roi_frame_number is not None:
+    print('Selected frames: {}\n'.format(poly_roi_frame_number))
 
-print('Selected bounding boxes: {}'.format(bboxes))
+#re-init video reader
+cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+ok , frame = cap.read()
+if not ok: exit("Fatal error!")
+smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+
 multiTracker = cv.legacy.MultiTracker_create()
 
 # List for saving points of tracking in the basketball diagram (homography)
 x_sequence_image, y_sequence_image = [], []
 x_sequences, y_sequences = [], []
-for i, bbox in enumerate(bboxes):
+for n_target in range(len(bboxes)):
+    bbox = bboxes[n_target][0]
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
     x_sequences.append([])
     y_sequences.append([])
@@ -295,16 +320,6 @@ for i, bbox in enumerate(bboxes):
     kalman_filters.append(KalmanFilter())
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
-
-    maskers.append(getMaskerByName(loadeddict.get('masker'),
-                                   debug=DEBUG,
-                                   frame=smallFrame,
-                                   bbox=bbox,
-                                   poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None,
-                                   bgmask=bgmask, 
-                                   fgmask=fgmask,
-                                   update_mask=loadeddict.get('update_mask')
-                                   ))
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -315,9 +330,9 @@ for i, bbox in enumerate(bboxes):
     tracking_point_img = (vector[0], vector[1])
     w = vector[2]
     tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
-    x_sequences[i].append(tracking_point_new[0])
-    y_sequences[i].append(tracking_point_new[1])
-    cv.circle(img, tracking_point_new, 4, colors[i], -1)
+    x_sequences[n_target].append(tracking_point_new[0])
+    y_sequences[n_target].append(tracking_point_new[1])
+    cv.circle(img, tracking_point_new, 4, colors[n_target], -1)
 
 if DEBUG:
     # Save and visualize the chosen bounding box and its point used for homography
@@ -334,7 +349,6 @@ if DEBUG and SHOW_MASKS:
 if DEBUG and SHOW_HOMOGRAPHY:
     cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
-
 
 benchmarkDist = []
 start = time.time()
@@ -403,7 +417,14 @@ while (1):
             # RE-INITIALIZATION END
 
             if loadeddict.get('masker') not in loadeddict.get('custom_trackers'):
-                maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+                status = maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
+                if status is not None: #re-init the Tracker
+                    print('RE-INITIALIZE TRACKER n° %d' % status)
+                    multiTracker = cv.legacy.MultiTracker_create()
+                    for n_target in range(len(bboxes)):
+                        nb = bboxes[n_target][status]
+                        boxi = (nb[0], nb[1], nb[2], nb[3]) #TODO: needed?
+                        multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -414,8 +435,6 @@ while (1):
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
-                cv.circle(img, tracking_point_new, 4, colors[i], -1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
 
             # Show results
