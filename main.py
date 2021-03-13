@@ -184,6 +184,7 @@ if MANUAL_ROI_SELECTION:
     if POLYNOMIAL_ROI:
         pts = []
         cv.namedWindow('ROI')
+        cv.imshow('ROI', smallFrame)
         cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
         print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
         print("[INFO] Press ENTER to determine the selection area and save it")
@@ -251,7 +252,7 @@ else:
 
     """
     if POLYNOMIAL_ROI:
-        pts =  [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)] 
+        pts =  [(418, 16), (429, 22), (435, 35), (430, 45), (424, 51), (431, 65), (437, 79), (440, 97), (446, 119), (440, 123), (434, 113), (420, 114), (414, 114), (414, 127), (417, 148), (416, 167), (411, 187), (408, 198), (423, 203), (417, 209), (402, 212), (395, 205), (398, 189), (399, 177), (401, 165), (404, 158), (395, 156), (390, 168), (378, 176), (366, 185), (357, 196), (351, 209), (344, 196), (346, 179), (360, 169), (376, 160), (366, 146), (365, 133), (361, 116), (365, 105), (347, 101), (358, 84), (373, 79), (383, 61), (396, 48), (401, 37), (403, 26), (409, 19)]
         for i, _ in enumerate(pts): pts[i] = (pts[i][0], pts[i][1])
         poly_roi.append(pts)
         bbox = cv.boundingRect(np.array(pts))
@@ -428,7 +429,7 @@ while (1):
             # Show results
             cv.imshow('Tracking', smallFrame)
             if SHOW_MASKS:
-                cv.imshow('Tracking-Masks', maskedFrame)
+                cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
             if SHOW_HOMOGRAPHY:
                 cv.imshow('Tracking-Homography', img)
 

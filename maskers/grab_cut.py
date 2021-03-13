@@ -1,6 +1,7 @@
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage.segmentation as skiseg
 
 from .masker import Masker
 
@@ -47,7 +48,7 @@ class GrabCut(Masker):
         nextFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
         # Every 5 frames recompute the tracked features
-        if self.index % 5 == 0:
+        if self.index % 10 == 0:
             featureMask = cv.dilate(self.prevMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5)))
             self.fgptsPrev, self.fgdesPrev = self.computeFeatures(prevFrame, featureMask)
             featureMask = np.where(featureMask == 0, 255, 0).astype(np.uint8) # Invert mask to compute background features
@@ -115,12 +116,28 @@ class GrabCut(Masker):
         (resmask, bgModel, fgModel) = cv.grabCut(frame, gcmask, bbox, np.zeros((1, 65)), np.zeros((1, 65)), ITERATIONS, mode=cv.GC_INIT_WITH_MASK)
         
         # Extract resulting mask
-        mask[(resmask == cv.GC_FGD) | (resmask == cv.GC_PR_FGD)] = 255
-        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
-        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
-        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
-        self.prevMask = mask.copy()
+        bmask = np.zeros(frame.shape[:2], dtype=np.uint8)
+        bmask[(resmask == cv.GC_FGD) | (resmask == cv.GC_PR_FGD)] = 255
 
-        # Draw resulting fgmask and bgmask on frame
-        for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
-        for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)
+        # Improve results with morphology opening and closing
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
+        bmask = cv.morphologyEx(bmask, cv.MORPH_OPEN, kernel)
+        bmask = cv.morphologyEx(bmask, cv.MORPH_CLOSE, kernel)
+
+        '''
+        # Compute superpixels and merge the mask
+        OCCUPANCY_THRESHOLD = 0.7 # Perc of occupied pixels in a segemtn to consider the segment part of the mask
+        segments = skiseg.quickshift(frame, kernel_size=5, max_dist=6, ratio=0.5)
+        for seg in np.unique(segments):
+            area = len(segments[segments == seg])
+            bmaskInSeg = len(segments[(segments == seg) & (bmask > 0)])
+            occupancy = bmaskInSeg / area 
+            if occupancy > OCCUPANCY_THRESHOLD:
+                bmask[segments == seg] = 255
+        '''
+        self.prevMask = bmask.copy()
+
+        # Draw resulting mask and frame
+        mask[:, :, 2] = bmask
+        # for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
+        # for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)

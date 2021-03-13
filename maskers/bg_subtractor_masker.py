@@ -33,7 +33,7 @@ class BackgroundSubtractorMasker(Masker):
         # cv.imshow('Background-Mask', fgMask)
 
         # Apply erosion followed by dilation to remove noise, and extract contours
-        fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
+        # fgMask = cv.morphologyEx(fgMask, cv.MORPH_OPEN, self.kernel)
         fgMask = cv.morphologyEx(fgMask, cv.MORPH_CLOSE, self.kernel)
 
         # Extract mask in polygon and apply threshold
@@ -42,8 +42,8 @@ class BackgroundSubtractorMasker(Masker):
         _, fgMask = cv.threshold(m, BG_THRESHOLD, 255, cv.THRESH_BINARY)
         
         # Set foreground player to red and mantain background pixels colors
-        frame[(fgMask > 0)] = (0, 0, 255)
-        mask[(fgMask > 0)] = 255
+        # frame[(fgMask > 0)] = (0, 0, 255)
+        mask[(fgMask > 0), 2] = 255
 
         # Show results
         # cv.drawContours(frame, contours, -1, (0, 0, 255), 1)
