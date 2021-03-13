@@ -9,7 +9,7 @@ import scipy as sp
 from scipy import signal
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
-import time
+import time, sys
 import colorutils
 from kalman_filter import KalmanFilter
 from maskers import getMaskerByName
@@ -126,12 +126,17 @@ SHOW_MASKS = False
 SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
+CONFIG_FILE = 'config.yaml'
 
 WINDOW_HEIGHT = 700
 
+# Executed with custom config.yaml => bechmark computation
+if len(sys.argv) > 1:
+    CONFIG_FILE = sys.argv[1]
+    DEBUG = False    
 
 # Read congigurations
-with open('config.yaml') as f:
+with open(CONFIG_FILE) as f:
     loadeddict = yaml.full_load(f)
     TRACKER = loadeddict.get('tracker')
     MASKER = loadeddict.get('masker')
@@ -314,18 +319,19 @@ for i, bbox in enumerate(bboxes):
     y_sequences[i].append(tracking_point_new[1])
     cv.circle(img, tracking_point_new, 4, colors[i], -1)
 
-# Save and visualize the chosen bounding box and its point used for homography
-cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
-cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-cv.namedWindow('Tracking')
-#cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
-cv.imshow('Tracking', smallFrame)
-cv.waitKey(0)
+if DEBUG:
+    # Save and visualize the chosen bounding box and its point used for homography
+    cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
+    cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+    cv.namedWindow('Tracking')
+    #cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
+    cv.imshow('Tracking', smallFrame)
+    cv.waitKey(0)
 
-if SHOW_MASKS:
+if DEBUG and SHOW_MASKS:
     cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
-if SHOW_HOMOGRAPHY:
+if DEBUG and SHOW_HOMOGRAPHY:
     cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
@@ -406,22 +412,21 @@ while (1):
             if DEBUG:
                 # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
-
-            cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-            cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-            cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
-
-            cv.circle(img, tracking_point_new, 4, colors[i], -1)
-            points.write(img)  # Save video for position tracking on the basketball diagram
+                cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+                cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
+                cv.circle(img, tracking_point_new, 4, colors[i], -1)
+                points.write(img)  # Save video for position tracking on the basketball diagram
 
             # Show results
-            cv.imshow('Tracking', smallFrame)
-            if SHOW_MASKS:
-                cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
-            if SHOW_HOMOGRAPHY:
-                cv.imshow('Tracking-Homography', img)
+            if DEBUG:
+                cv.imshow('Tracking', smallFrame)
+                if SHOW_MASKS:
+                    cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
+                if SHOW_HOMOGRAPHY:
+                    cv.imshow('Tracking-Homography', img)
 
-        if 1: #index > 50:
+        if DEBUG:
             out.write(smallFrame)  # Save video frame by frame
             out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
 
@@ -431,139 +436,139 @@ while (1):
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
-# cv.waitKey(0)
 out.release()
 out_mask.release()
 points.release()
 cv.destroyAllWindows()
-end = time.time()
-print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
 
-# Show outlier scores
-plt.plot(maskers[0].scores)
-plt.xlabel("Number of Frame")
-plt.ylabel("Score")
-plt.title("Outlier score distribution")
-plt.tight_layout()
-plt.show()
+if DEBUG:
+    end = time.time()
+    print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
+    
+    # Show outlier scores
+    plt.plot(maskers[0].scores)
+    plt.xlabel("Number of Frame")
+    plt.ylabel("Score")
+    plt.title("Outlier score distribution")
+    plt.tight_layout()
+    plt.show()
 
-
-# Show benchmark
-plt.plot(benchmarkDist)
-plt.xlabel("Number of Frame")
-plt.ylabel("Error of Center")
-plt.title("Avg. error = {}".format(int(np.mean(benchmarkDist))))
-plt.tight_layout()
-plt.show()
+    # Show benchmark
+    plt.plot(benchmarkDist)
+    plt.xlabel("Number of Frame")
+    plt.ylabel("Error of Center")
+    plt.title("Avg. error = {}".format(int(np.mean(benchmarkDist))))
+    plt.tight_layout()
+    plt.show()
 
 #plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
 # plt.show()
 
+if DEBUG:
+    #    _____          _   _____                             _
+    #   |  __ \        | | |  __ \                           (_)
+    #   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _
+    #   |  ___/ _ \/ __| __|  ___/ '__/ _ \ / __/ _ \/ __/ __| | '_ \ / _` |
+    #   | |  | (_) \__ \ |_| |   | | | (_) | (_|  __/\__ \__ \ | | | | (_| |
+    #   |_|   \___/|___/\__|_|   |_|  \___/ \___\___||___/___/_|_| |_|\__, |
+    #                                                                  __/ |
+    #                                                                 |___/
+    # (Montibeller project)
 
-#    _____          _   _____                             _
-#   |  __ \        | | |  __ \                           (_)
-#   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _
-#   |  ___/ _ \/ __| __|  ___/ '__/ _ \ / __/ _ \/ __/ __| | '_ \ / _` |
-#   | |  | (_) \__ \ |_| |   | | | (_) | (_|  __/\__ \__ \ | | | | (_| |
-#   |_|   \___/|___/\__|_|   |_|  \___/ \___\___||___/___/_|_| |_|\__, |
-#                                                                  __/ |
-#                                                                 |___/
-# (Montibeller project)
+    # 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
+    x_sequence_image = sp.signal.medfilt(x_sequence_image, 25)  # Window width of the filter MUST be ODD
+    y_sequence_image = sp.signal.medfilt(y_sequence_image, 25)
+    position_x = []
+    position_y = []
+    for i, bbox in enumerate(bboxes):
+        x_sequences[i] = sp.signal.medfilt(x_sequences[i], 25)
+        y_sequences[i] = sp.signal.medfilt(y_sequences[i], 25)
+        # Draw the trajectory on the basketball diagram
+        pts = np.column_stack((x_sequences[i], y_sequences[i]))
+        pts = np.array(pts, np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        cv.polylines(img, [pts], False, colors[i], 2)
+        position_x.append([])
+        position_y.append([])
 
-# 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
-x_sequence_image = sp.signal.medfilt(x_sequence_image, 25)  # Window width of the filter MUST be ODD
-y_sequence_image = sp.signal.medfilt(y_sequence_image, 25)
-position_x = []
-position_y = []
-for i, bbox in enumerate(bboxes):
-    x_sequences[i] = sp.signal.medfilt(x_sequences[i], 25)
-    y_sequences[i] = sp.signal.medfilt(y_sequences[i], 25)
-    # Draw the trajectory on the basketball diagram
-    pts = np.column_stack((x_sequences[i], y_sequences[i]))
-    pts = np.array(pts, np.int32)
-    pts = pts.reshape((-1, 1, 2))
-    cv.polylines(img, [pts], False, colors[i], 2)
-    position_x.append([])
-    position_y.append([])
+    # Show the result
+    if SHOW_HOMOGRAPHY:
+        cv.imshow('Smoothing', img)
+        cv.waitKey(0)
+        cv.destroyWindow('Smoothing')
 
-# Show the result
-if SHOW_HOMOGRAPHY:
-    cv.imshow('Smoothing', img)
-    cv.waitKey(0)
-    cv.destroyWindow('Smoothing')
+    # Evaluation of the shift, acceleration and the average speed of the players in real world coordinates
+    # Step 1: Compute the position of the smoothed vector of position in real world coordinates
+    # Step 2: Evaluate the length of the trajectory using an Euclidian distance between 2 successive points and sum them together
+    #         and compute the acceleration values
+    # Step 3: Compute the velocity and the total length of the trajectory
 
-# Evaluation of the shift, acceleration and the average speed of the players in real world coordinates
-# Step 1: Compute the position of the smoothed vector of position in real world coordinates
-# Step 2: Evaluate the length of the trajectory using an Euclidian distance between 2 successive points and sum them together
-#         and compute the acceleration values
-# Step 3: Compute the velocity and the total length of the trajectory
-
-# Step 1
-flag = 0
-index = 0
-for bbox in bboxes:
-    x_sequence_image = x_sequences[index]
-    y_sequence_image = y_sequences[index]
-    for i in range(0, len(x_sequence_image) - 1):
-        # x coordinate
-        length = x_sequence_image[i] - 38
-        proportion = length / 1008.0
-        position_x[index].append(28 * proportion)
-        # y coordinate
-        length = y_sequence_image[i] - 28
-        proportion = length / 545.0
-        position_y[index].append(15 * proportion)
-    index += 1
-# Step 2
-shift = 0
-index = 0
-px, py = [], []
-f = open(loadeddict.get('out_players_data'), 'w+')
-f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
-for bbox in bboxes:
-    px = position_x[index]
-    py = position_y[index]
+    # Step 1
+    flag = 0
+    index = 0
+    for bbox in bboxes:
+        x_sequence_image = x_sequences[index]
+        y_sequence_image = y_sequences[index]
+        for i in range(0, len(x_sequence_image) - 1):
+            # x coordinate
+            length = x_sequence_image[i] - 38
+            proportion = length / 1008.0
+            position_x[index].append(28 * proportion)
+            # y coordinate
+            length = y_sequence_image[i] - 28
+            proportion = length / 545.0
+            position_y[index].append(15 * proportion)
+        index += 1
+    # Step 2
     shift = 0
-    rgb = colors[index]
-    actual_name, closest_name = colorutils.getColorName(rgb)
-    f.write('\n\n')
-    f.write('TRACKER COLOR %s\r\n' % closest_name)
-    f.write('ACCELERATION:\r\n')
-    iter_frame = 1
-    shift_prec, average_acceleration1 = None, None
-    for i in range(0, len(px) - 1):
-        # compute here the accelleration for space sample
-        shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2)  # steve updated from math.sqrt to np.sqrt
-        if i == 50*iter_frame:
-            if iter_frame == 1:
-                shift_prec = shift
-                speed1 = shift_prec / 2
-                average_acceleration1 = speed1 / 2
-                f.write('Detection done in the first 2 seconds\r\n')
-                f.write('route space:%f, time step 2 sec\r\n' % shift_prec)
-                f.write('acceleration: %f\r\n' % average_acceleration1)
-            else:
-                t1 = (((2 * fps) * iter_frame) - (2 * fps)) / fps
-                t2 = ((2 * fps) * iter_frame) / fps
-                speed2 = (shift - shift_prec) / 2
-                average_acceleration2 = speed2 / 2 - average_acceleration1
-                average_acceleration1 = average_acceleration2
-                f.write('Detection done in the time sample %d - %d sec\r\n' % (t2, t1))
-                f.write('route space:%f, time step 2 sec\r\n' % (shift - shift_prec))
-                f.write('acceleration: %f\r\n' % average_acceleration2)
-                shift_prec = shift
+    index = 0
+    px, py = [], []
+    f = open(loadeddict.get('out_players_data'), 'w+')
+    f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
+    for bbox in bboxes:
+        px = position_x[index]
+        py = position_y[index]
+        shift = 0
+        rgb = colors[index]
+        actual_name, closest_name = colorutils.getColorName(rgb)
+        f.write('\n\n')
+        f.write('TRACKER COLOR %s\r\n' % closest_name)
+        f.write('ACCELERATION:\r\n')
+        iter_frame = 1
+        shift_prec, average_acceleration1 = None, None
+        for i in range(0, len(px) - 1):
+            # compute here the accelleration for space sample
+            shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2)  # steve updated from math.sqrt to np.sqrt
+            if i == 50*iter_frame:
+                if iter_frame == 1:
+                    shift_prec = shift
+                    speed1 = shift_prec / 2
+                    average_acceleration1 = speed1 / 2
+                    f.write('Detection done in the first 2 seconds\r\n')
+                    f.write('route space:%f, time step 2 sec\r\n' % shift_prec)
+                    f.write('acceleration: %f\r\n' % average_acceleration1)
+                else:
+                    t1 = (((2 * fps) * iter_frame) - (2 * fps)) / fps
+                    t2 = ((2 * fps) * iter_frame) / fps
+                    speed2 = (shift - shift_prec) / 2
+                    average_acceleration2 = speed2 / 2 - average_acceleration1
+                    average_acceleration1 = average_acceleration2
+                    f.write('Detection done in the time sample %d - %d sec\r\n' % (t2, t1))
+                    f.write('route space:%f, time step 2 sec\r\n' % (shift - shift_prec))
+                    f.write('acceleration: %f\r\n' % average_acceleration2)
+                    shift_prec = shift
 
-            iter_frame += 1
-            f.write('\n')
-# Step 3
-    # Print of the results
-    # Evaluation of the average speed: speed=space/time
-    average_speed = shift / (len(px)/fps)
-    f.write(f'trajectory length {shift:.2f}[m]\r\n\n')
-    f.write(f'average speed {average_speed:.2f}[m/s]\r\n\n')
-    cv.imwrite(loadeddict.get('out_tracking_results'), img)
-    cv.imshow('Result', img)
-    index += 1
-cap.release()
-cv.destroyAllWindows()
-f.close()
+                iter_frame += 1
+                f.write('\n')
+    # Step 3
+        # Print of the results
+        # Evaluation of the average speed: speed=space/time
+        average_speed = shift / (len(px)/fps)
+        f.write(f'trajectory length {shift:.2f}[m]\r\n\n')
+        f.write(f'average speed {average_speed:.2f}[m/s]\r\n\n')
+        cv.imwrite(loadeddict.get('out_tracking_results'), img)
+        cv.imshow('Result', img)
+        index += 1
+    cap.release()
+    cv.destroyAllWindows()
+    f.close()
