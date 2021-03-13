@@ -447,7 +447,7 @@ while (1):
             # Show results
             cv.imshow('Tracking', smallFrame)
             if SHOW_MASKS:
-                cv.imshow('Tracking-Masks', maskedFrame)
+                cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
             if SHOW_HOMOGRAPHY:
                 cv.imshow('Tracking-Homography', img)
 
