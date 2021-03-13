@@ -290,7 +290,6 @@ else:
         if ok:
             smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
     
-
 print('Selected poly roi: {}\n'.format(poly_roi))
 if poly_roi_frame_number is not None:
     print('Selected frames: {}\n'.format(poly_roi_frame_number))
@@ -314,14 +313,6 @@ for n_target in range(len(bboxes)):
     kalman_filters.append(KalmanFilter())
     kalman_filtersp1.append(KalmanFilter())
     kalman_filtersp2.append(KalmanFilter())
-
-    """maskers.append(getMaskerByName(loadeddict.get('masker'),
-                                   debug=DEBUG,
-                                   frame=smallFrame,
-                                   bbox=bbox,
-                                   poly_roi=poly_roi[i] if POLYNOMIAL_ROI else None,
-                                   update_mask=loadeddict.get('update_mask')
-                                   ))"""
 
     tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
     cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
@@ -350,7 +341,6 @@ if SHOW_MASKS:
 if SHOW_HOMOGRAPHY:
     cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
-
 
 benchmarkDist = []
 start = time.time()
@@ -427,7 +417,6 @@ while (1):
                         nb = bboxes[n_target][status]
                         boxi = (nb[0], nb[1], nb[2], nb[3]) #TODO: needed?
                         multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
-                        
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -439,9 +428,6 @@ while (1):
 
             cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
             cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-            #cv.circle(smallFrame, (int(predictedCoords[0][0]), int(predictedCoords[1][0])), 4, colors[i], -1)
-
-            #cv.circle(img, tracking_point_new, 4, colors[i], -1)
             points.write(img)  # Save video for position tracking on the basketball diagram
 
             # Show results
