@@ -38,8 +38,8 @@ if __name__ == "__main__":
 
     VIDEOS = ['bird_of_paradise']
     HYPERPARAMS = {
-        'n_estimators': [30],
-        'max_depth': [7],
+        'n_estimators': [10],
+        'max_depth': [5],
         'n_components': [1],
         'novelty_detection': [True],#[True, False],
         'over_segmentation': ['quickshift']#['quickshift', 'felzenszwalb']

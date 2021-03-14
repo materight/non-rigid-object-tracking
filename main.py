@@ -126,10 +126,11 @@ colors = []
 histo = []
 
 # Set output video
-fourcc = cv.VideoWriter_fourcc(*'DIVX')
-out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
-out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
-points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
+if DEBUG:
+    fourcc = cv.VideoWriter_fourcc(*'DIVX')
+    out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
+    out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
+    points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
 
 
 #    __  __          _____ _   _
@@ -428,9 +429,10 @@ if BENCHMARK_OUT is not None:
     with open(BENCHMARK_OUT, 'w') as f:
         f.write(f'{np.mean(benchmarkDist)};{tot_time}')
 
-out.release()
-out_mask.release()
-points.release()
+if DEBUG:
+    out.release()
+    out_mask.release()
+    points.release()
 cv.destroyAllWindows()
 
 if DEBUG:

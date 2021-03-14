@@ -91,9 +91,9 @@ class SemiSupervisedNonRigidMasker(Masker):
             error[error >  self.novelty_det[self.current_model]["threshold"]] = 255
             cv.imshow("Novelty_detection", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
 
-        if self.config.get("over_segmentation") == "quickshift":
+        if self.config["params"]["over_segmentation"] == "quickshift":
             segments = quickshift(crop_frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
-        elif self.config.get("over_segmentation") == "felzenszwalb":
+        elif self.config["params"]["over_segmentation"] == "felzenszwalb":
             segments = felzenszwalb(crop_frame, scale=100, sigma=0.5, min_size=50)
         else:
             segments = None
