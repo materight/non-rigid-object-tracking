@@ -1,7 +1,3 @@
-'''
-    This script compute the trajectory of a multiple players and reproduce the trajectory on the basketball diagram.
-    Moreover, it evalueates the length of the trajectory, the acceleration and the average speed of the player in a given timestep.
-'''
 import cv2 as cv
 import numpy as np
 import yaml
@@ -82,11 +78,20 @@ def returnIntersection(hist_1, hist_2):
 #    _| |_| |\  |_| |_   | |
 #   |_____|_| \_|_____|  |_|
 
+CONFIG_FILE = 'config.yaml'
+
+# Read congigurations
+with open(CONFIG_FILE) as f:
+    loadeddict = yaml.full_load(f)
+    TRACKER = loadeddict.get('tracker')
+    MASKER = loadeddict.get('masker')
+    TAU = loadeddict.get('tau')
+    RESIZE_FACTOR = loadeddict.get('resize_factor')
+    DEBUG = loadeddict.get('debug')
+
 MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
-CONFIG_FILE = 'config.yaml'
 BENCHMARK_OUT = None
-DEBUG = loadeddict.get('debug')
 
 WINDOW_HEIGHT = 700
 
@@ -97,13 +102,7 @@ if len(sys.argv) > 2:
     DEBUG = False
     MANUAL_ROI_SELECTION = False
 
-# Read congigurations
-with open(CONFIG_FILE) as f:
-    loadeddict = yaml.full_load(f)
-    TRACKER = loadeddict.get('tracker')
-    MASKER = loadeddict.get('masker')
-    TAU = loadeddict.get('tau')
-    RESIZE_FACTOR = loadeddict.get('resize_factor')
+
 
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
