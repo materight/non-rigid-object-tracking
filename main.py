@@ -89,7 +89,7 @@ with open(CONFIG_FILE) as f:
     RESIZE_FACTOR = loadeddict.get('resize_factor')
     DEBUG = loadeddict.get('debug')
 
-MANUAL_ROI_SELECTION = False
+MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 BENCHMARK_OUT = None
 
@@ -159,6 +159,8 @@ if not MANUAL_ROI_SELECTION:
                             update_mask=loadeddict.get('update_mask')
                             ))
             for n_selection , frame_selection in enumerate(target_selection): #iterate masks over time for a single target
+                if not loadeddict.get('multi_selection') and n_selection > 0:
+                    continue
                 bbox = cv.boundingRect(np.array(frame_selection))
                 bboxes[-1].append(bbox)
 
@@ -182,7 +184,8 @@ else:
     frame_to_init = int(video_length / loadeddict.get('re_init_span')) #ask for a selection every frame_to_init
     poly_roi_frame_number = []
     k = 0
-    while ok:
+    stop_selection = False
+    while ok and not stop_selection:
         if (k % frame_to_init) == 0:
             print("[INFO] Selection n° {}/{}".format(int(k / frame_to_init), loadeddict.get('re_init_span')))
             poly_roi_frame_number.append(k)
@@ -236,10 +239,11 @@ else:
                 if (key == ord('q')):  # q is pressed
                     cv.destroyWindow('ROI')
                     stop = True
+                    if not loadeddict.get('multi_selection'):
+                        stop_selection = True
                 if POLYNOMIAL_ROI and key == ord("\r"):
                     print("[INFO] ROI coordinates:", pts)
                     if len(pts) >= 3:
-                        # self.poly_roi.append(pts[0])
                         if k < frame_to_init:
                             poly_roi.append([])
                         if n_target >= len(poly_roi):
@@ -474,7 +478,7 @@ if DEBUG:
         position_y.append([])
 
     # Show the result
-    if SHOW_HOMOGRAPHY:
+    if loadeddict.get('show_homography'):
         cv.imshow('Smoothing', img)
         cv.waitKey(0)
         cv.destroyWindow('Smoothing')
