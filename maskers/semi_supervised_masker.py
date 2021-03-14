@@ -56,19 +56,19 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
 
         if self.index <= 5:
-            self.train_outlier.append(self.quantify_image(frame))
+            self.train_outlier.append(self.quantifyImage(frame))
         elif self.index == 6:
             self.outlier = PCA(random_state=42, n_components=1).fit(self.train_outlier)
             print(self.outlier.explained_variance_ratio_)
         else:
-            X = self.quantify_image(frame)
+            X = self.quantifyImage(frame)
             X_pca = self.outlier.transform([X])
             X_inv = self.outlier.inverse_transform(X_pca)
             error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
             self.scores.append(error)
 
         
-        enlarge_bbox = 5 #20 pixels in all directions
+        enlarge_bbox = 20 #20 pixels in all directions
         bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox ) #enlarge the box
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
@@ -91,59 +91,41 @@ class SemiSupervisedNonRigidMasker(Masker):
             segments = felzenszwalb(crop_frame, scale=100, sigma=0.5, min_size=50)
         else:
             segments = None
-        _ , areas = np.unique(segments, return_counts=True)
 
-        
+        #predict with the discriminative model
         probs_curr_model = self.models[self.current_model]["model"].predict_proba(X)
         if self.multi_selection and len(self.models) > self.current_model + 1: #there is a future model
             probs_future_model = self.models[self.current_model+1]["model"].predict_proba(X)
-            probs = np.mean([probs_curr_model, probs_future_model], axis=0)
+            probs = np.mean([probs_curr_model, probs_future_model], axis=0) #TODO: weighted average
         else:
             probs = probs_curr_model
 
-        #segment_probs = defaultdict(float)
-        segment_probs_pca = defaultdict(float)
-        c = 0
-        for i in range(crop_frame.shape[0]):
-            for j in range(crop_frame.shape[1]):
-                #segment_probs[segments[i,j]] += probs[c, 1]
-                segment_probs_pca[segments[i,j]] += probs[c, 1] - (max(sa[i,j], self.novelty_det[self.current_model]["threshold"]) - self.novelty_det[self.current_model]["threshold"])
-                c += 1
-
-        #prob_map = np.zeros_like(segments, dtype=np.uint8)
-        prob_map_pca = np.zeros_like(segments, dtype=np.uint8)
-        for key in segment_probs_pca.keys():
-            #segment_probs[key] /= areas[key] 
-            segment_probs_pca[key] /= areas[key] 
-            
-            idxs = np.nonzero(segments == key)
-            #prob_map[idxs] = 255 if segment_probs[key] > 0.5 else 0
-            prob_map_pca[idxs] = 255 if segment_probs_pca[key] > 0.5 else 0
-        #cv.imshow("Prob. map superpixels", prob_map)
-        cv.imshow("Prob. map superpixels with PCA", prob_map_pca)
-
-        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = prob_map_pca[:,:]
-
-        #prob_map = np.zeros_like(crop_frame, dtype=np.uint8)
-        #c = 0
-        #for i in range(prob_map.shape[0]):
-        #    for j in range(prob_map.shape[1]):
-        #        prob_map[i, j] = probs[c, 1] * 255
-        #        c += 1
-        #cv.imshow("prob", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
+        labels , areas = np.unique(segments, return_counts=True)
+        self.compileSaliencyMap(probs=probs, 
+                                mask=mask, 
+                                segments=segments, 
+                                outlier_scores=sa, 
+                                bbox=bbox, 
+                                labels=labels, 
+                                areas=areas, 
+                                outlier_threshold=self.novelty_det[self.current_model]["threshold"], 
+                                crop_frame_shape=crop_frame.shape)
         
-        #plt.imshow(cv.blur(prob_map,(2,2)), cmap='hot')
-        #plt.show()
-
         self.index += 1
         if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
             self.current_model += 1
             print("\n \n CHANGE OF MODEL \n \n")
             return self.current_model #to flag the re-initialization also of the tracker
+
+        if self.debug:
+            cv.imshow("Prob. map superpixels", mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2])
+            #prob_map = (probs[:, 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
+            #cv.imshow("Salicency map", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
+
         return None
 
 
-    def add_model(self, frame, poly_roi, bbox, n_frame, show_prob_map=True):
+    def addModel(self, frame, poly_roi, bbox, n_frame, show_prob_map=True):
         """
         Fit a discriminative model for the frame 'frame' taking as foreground the pixels inside the mask defined 
         by 'poly_roi'.
@@ -174,7 +156,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         X = X / 255   #normalize feature vectors
 
         #Train discriminative model                                              #30;7
-        clf = RandomForestClassifier(random_state=42, n_estimators=10, max_depth=5).fit(X,y) 
+        clf = RandomForestClassifier(random_state=42, n_estimators=30, max_depth=7).fit(X,y) 
         y_pred = clf.predict(X);   probs = clf.predict_proba(X)
         f1 = round(f1_score(y, y_pred), 2)
         print("F1 score classifier for frame {}= {}".format(n_frame, f1))
@@ -200,23 +182,30 @@ class SemiSupervisedNonRigidMasker(Masker):
             prob_map = (probs[:-len(X_nroi), 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
             cv.imshow("prob", prob_map)
 
+    @staticmethod
+    @jit(nopython=True)
+    def compileSaliencyMap(probs, mask, segments, outlier_scores, crop_frame_shape, bbox, outlier_threshold, labels, areas):
+        #segment_probs = defaultdict(float)
+        segment_probs_pca = np.zeros_like(labels, dtype=np.float32) 
+        c = 0
+        for i in range(crop_frame_shape[0]):
+            for j in range(crop_frame_shape[1]):
+                #segment_probs[segments[i,j]] += probs[c, 1]
+                segment_probs_pca[segments[i,j]] += probs[c, 1] - (max(outlier_scores[i,j], outlier_threshold) - outlier_threshold)
+                c += 1
+        #prob_map = np.zeros_like(segments, dtype=np.uint8)
+        prob_map_pca = np.zeros_like(segments, dtype=np.uint8)
+        for key in labels:
+            #segment_probs[key] /= areas[key] 
+            segment_probs_pca[key] /= areas[key] 
+            
+            if segment_probs_pca[key] > 0.5:
+                idxs = np.argwhere(segments == key)
+                for idx in idxs:
+                    prob_map_pca[idx[0], idx[1]] = 255
+                    #prob_map[idx] = 255 if segment_probs[key] > 0.5 else 0
+        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = prob_map_pca[:,:]
 
-    def quantify_image(self, image, bins=(4, 6, 3)):
-        hist = cv.calcHist([image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256])
-        hist = cv.normalize(hist, hist).flatten()
-        return hist
-
-
-    def getRONI(self, frame):
-        """
-        Select Region of Non-Interest (area that surely belongs to the background). 
-        Augment the dataset of feature vector with more negative (background) samples, to increase (maybe) the discriminative power of the 
-        classifier
-        """
-        bbox = cv.selectROI('Select one RONI', frame, False)
-        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), np.array([], ndmin=2, dtype=np.uint8), train=False)
-        return X , y
 
 
     @staticmethod
@@ -264,6 +253,23 @@ class SemiSupervisedNonRigidMasker(Masker):
         #y = y_pos + y_neg
         X = np.array(X_test[1:])
         y = np.array(y_test[1:], dtype=np.uint8)
+        return X , y
+
+    def quantifyImage(self, image, bins=(4, 6, 3)):
+        hist = cv.calcHist([image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256])
+        hist = cv.normalize(hist, hist).flatten()
+        return hist
+
+
+    def getRONI(self, frame):
+        """
+        Select Region of Non-Interest (area that surely belongs to the background). 
+        Augment the dataset of feature vector with more negative (background) samples, to increase (maybe) the discriminative power of the 
+        classifier
+        """
+        bbox = cv.selectROI('Select one RONI', frame, False)
+        crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), np.array([], ndmin=2, dtype=np.uint8), train=False)
         return X , y
 
 """
