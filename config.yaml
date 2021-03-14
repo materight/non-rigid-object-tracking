@@ -27,7 +27,12 @@ update_mask: False
 multi_selection: True
 re_init_span: 3 #define new ROI/RONI every tot_duration_clip/re_init_span, first selection excluded
 
-
+params:
+  n_estimators: 0
+  max_depth: 0
+  n_components: 0
+  novelty_detection: 0
+  over_segmentation: quickshift
 
 #Example bounding boxes for clip3.mp4
 #For RESIZE_FACTOR=0.35 -> [(1013, 371, 25, 60), (367, 376, 21, 49), (566, 386, 35, 63)]

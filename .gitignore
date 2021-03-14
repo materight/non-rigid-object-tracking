@@ -1,6 +1,8 @@
 output/*
 sources/*
 prim/lib/*
+tmp
+benchmark_results.csv
 
 # Editor directories and files
 .DS_Store
