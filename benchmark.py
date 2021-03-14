@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # Launch different subprocesses for each video and param combination
     tp = multiprocessing.pool.ThreadPool()
-    pbar = tqdm(total=len(HYPERPARAMS) * len(VIDEOS))
+    pbar = tqdm(total=len(params_list) * len(VIDEOS))
     results = {}
     for i, params in enumerate(params_list):
         results[i] = params.copy()
