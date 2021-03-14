@@ -79,6 +79,13 @@ def returnIntersection(hist_1, hist_2):
 #   |_____|_| \_|_____|  |_|
 
 CONFIG_FILE = 'config.yaml'
+POLYNOMIAL_ROI = True
+BENCHMARK_OUT = None
+
+# Executed with custom config.yaml => bechmark computation
+if len(sys.argv) > 2:
+    CONFIG_FILE = sys.argv[1]
+    BENCHMARK_OUT = sys.argv[2]
 
 # Read congigurations
 with open(CONFIG_FILE) as f:
@@ -90,17 +97,7 @@ with open(CONFIG_FILE) as f:
     DEBUG = loadeddict.get('debug')
     MANUAL_ROI_SELECTION = loadeddict.get('manual_roi_selection')
 
-POLYNOMIAL_ROI = True
-BENCHMARK_OUT = None
-
 WINDOW_HEIGHT = 700
-
-# Executed with custom config.yaml => bechmark computation
-if len(sys.argv) > 2:
-    CONFIG_FILE = sys.argv[1]
-    BENCHMARK_OUT = sys.argv[2]
-    DEBUG = False
-    MANUAL_ROI_SELECTION = False
 
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
@@ -372,7 +369,8 @@ while (1):
             # RE-INITIALIZATION START
             crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
             hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-            intersection = returnIntersection(histo[i], hist_2)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                intersection = returnIntersection(histo[i], hist_2)
             if intersection < 0:
                 print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
                 colors[i] = colorutils.pickNewColor(color_names_used)

@@ -19,6 +19,12 @@ import pandas as pd
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 
 from numba import jit, prange
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+import warnings
+
+# Disable deprecation warning
+warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 
 class SemiSupervisedNonRigidMasker(Masker):

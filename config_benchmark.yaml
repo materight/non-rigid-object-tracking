@@ -18,3 +18,7 @@ input_image_homography: sources/Map/basket_field.jpg
 masker: SemiSupervised
 custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
+
+manual_roi_selection: False
+multi_selection: True
+re_init_span: 3 #define new ROI/RONI every tot_duration_clip/re_init_span, first selection excluded

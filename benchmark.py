@@ -13,6 +13,14 @@ def computeBenchmark(mask, truth):
     benchmark = np.sum(bmask & btruth) / np.sum(bmask | btruth)
     return benchmark
 
+def run_main(i, v, config_path, benchmark_out_path, results):
+    process = subprocess.Popen(['python', 'main.py', config_path, benchmark_out_path], stdout=FNULL)
+    process.wait()
+    pbar.update(n=1)
+    with open(benchmark_out_path) as benchmark_file:
+        benchmark, time = map(float, benchmark_file.readline().split(';'))
+        results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
+
 if __name__ == "__main__":
     '''
     Run main.py multiple times with different parameters, in order to try different hyperparameter values
@@ -30,8 +38,8 @@ if __name__ == "__main__":
 
     VIDEOS = ['bird_of_paradise']
     HYPERPARAMS = {
-        'n_estimators': [10],
-        'max_depth': [5],
+        'n_estimators': [30],
+        'max_depth': [7],
         'n_components': [1],
         'novelty_detection': [True],#[True, False],
         'over_segmentation': ['quickshift']#['quickshift', 'felzenszwalb']
@@ -47,12 +55,13 @@ if __name__ == "__main__":
     os.makedirs(TMP_PATH)
 
     # Launch different subprocesses for each video and param combination
-    tp = multiprocessing.pool.ThreadPool()
+    NCPU = None # Number of parallel processes to spawn. None to use the available number of core
+    tp = multiprocessing.pool.ThreadPool(processes=NCPU)
     pbar = tqdm(total=len(params_list) * len(VIDEOS))
     results = {}
     for i, params in enumerate(params_list):
         results[i] = params.copy()
-        for j, v in enumerate(VIDEOS):
+        for v in VIDEOS:
             configs = {
                 **CONFIGS, 
                 'input_video': f'{VIDEOS_PATH}/{v}.mp4',
@@ -60,18 +69,11 @@ if __name__ == "__main__":
                 'params': params,
                 **POLYGONS[v]
             }
-            config_path = f'{TMP_PATH}/config-{i}-{j}.yaml'
-            benchmark_out_path = f'{TMP_PATH}/results-{i}-{j}.csv'
+            config_path = f'{TMP_PATH}/config-{i}-{v}.yaml'
+            benchmark_out_path = f'{TMP_PATH}/results-{i}-{v}.csv'
             with open(config_path, 'w') as config_file:
                 yaml.dump(configs, config_file, sort_keys=False)
-            def run():
-                process = subprocess.Popen(['python', 'main.py', config_path, benchmark_out_path], stdout=FNULL)
-                process.wait()
-                pbar.update(n=1)
-                with open(benchmark_out_path) as benchmark_file:
-                    benchmark, time = map(float, benchmark_file.readline().split(';'))
-                    results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
-            tp.apply_async(run)
+            tp.apply_async(run_main, (i, v, config_path, benchmark_out_path, results))
     tp.close() # No more thread to run
     tp.join() # Wait for all the thread to finish
     pbar.close()
