@@ -127,13 +127,16 @@ SHOW_HOMOGRAPHY = False
 MANUAL_ROI_SELECTION = True
 POLYNOMIAL_ROI = True
 CONFIG_FILE = 'config.yaml'
+BENCHMARK_OUT = None
 
 WINDOW_HEIGHT = 700
 
 # Executed with custom config.yaml => bechmark computation
-if len(sys.argv) > 1:
+if len(sys.argv) > 2:
     CONFIG_FILE = sys.argv[1]
-    DEBUG = False    
+    BENCHMARK_OUT = sys.argv[2]
+    DEBUG = False
+    MANUAL_ROI_SELECTION = False
 
 # Read congigurations
 with open(CONFIG_FILE) as f:
@@ -454,6 +457,10 @@ while (1):
     else:
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
+
+if BENCHMARK_OUT is not None:
+    with open(BENCHMARK_OUT, 'w') as f:
+        f.write(f'{np.mean(benchmarkDist):.2f}')
 
 out.release()
 out_mask.release()

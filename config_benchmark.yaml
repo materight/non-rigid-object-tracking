@@ -8,12 +8,8 @@ out_homography: output/Tracking/tracked_homography.avi
 out_bboxes: output/Tracking/bounding_box.png
 out_players_data: output/Tracking/data_players.txt
 out_tracking_results: output/Tracking/results.png
-
 input_image_homography: sources/Map/basket_field.jpg
 
 masker: SemiSupervised
 custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
-
-input_video: output/Video/SegTrack2/Video/worm.mp4
-input_truth: output/Video/SegTrack2/Truth/worm.mp4 # Can be null
