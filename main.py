@@ -1,7 +1,3 @@
-'''
-    This script compute the trajectory of a multiple players and reproduce the trajectory on the basketball diagram.
-    Moreover, it evalueates the length of the trajectory, the acceleration and the average speed of the player in a given timestep.
-'''
 import cv2 as cv
 import numpy as np
 import yaml
@@ -82,12 +78,19 @@ def returnIntersection(hist_1, hist_2):
 #    _| |_| |\  |_| |_   | |
 #   |_____|_| \_|_____|  |_|
 
-DEBUG = True
-SHOW_MASKS = False
-SHOW_HOMOGRAPHY = False
-MANUAL_ROI_SELECTION = True
-POLYNOMIAL_ROI = True
 CONFIG_FILE = 'config.yaml'
+
+# Read congigurations
+with open(CONFIG_FILE) as f:
+    loadeddict = yaml.full_load(f)
+    TRACKER = loadeddict.get('tracker')
+    MASKER = loadeddict.get('masker')
+    TAU = loadeddict.get('tau')
+    RESIZE_FACTOR = loadeddict.get('resize_factor')
+    DEBUG = loadeddict.get('debug')
+
+MANUAL_ROI_SELECTION = False
+POLYNOMIAL_ROI = True
 BENCHMARK_OUT = None
 
 WINDOW_HEIGHT = 700
@@ -99,13 +102,7 @@ if len(sys.argv) > 2:
     DEBUG = False
     MANUAL_ROI_SELECTION = False
 
-# Read congigurations
-with open(CONFIG_FILE) as f:
-    loadeddict = yaml.full_load(f)
-    TRACKER = loadeddict.get('tracker')
-    MASKER = loadeddict.get('masker')
-    TAU = loadeddict.get('tau')
-    RESIZE_FACTOR = loadeddict.get('resize_factor')
+
 
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
@@ -156,8 +153,7 @@ if not MANUAL_ROI_SELECTION:
             bboxes.append([])
             maskers.append(getMaskerByName(loadeddict.get('masker'),
                             debug=DEBUG,
-                            frame=None, #smallFrame,   used by supervised_masker
-                            bbox=None,  #bbox,
+                            frame=smallFrame, 
                             config=loadeddict,
                             poly_roi=poly_roi[n_target][0] if POLYNOMIAL_ROI else None, 
                             update_mask=loadeddict.get('update_mask')
@@ -176,11 +172,11 @@ if not MANUAL_ROI_SELECTION:
                 cap.set(cv.CAP_PROP_POS_FRAMES, poly_roi_frame_number[n_selection])
                 ok , frame = cap.read()
                 if not ok: exit("Fatal error!")
-                smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+                smallFrame_succ = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 
-                maskers[n_target].add_model(frame=smallFrame, poly_roi=poly_roi[n_target][n_selection], bbox=bbox, n_frame=poly_roi_frame_number[n_selection])
+                maskers[n_target].addModel(frame=smallFrame_succ, poly_roi=poly_roi[n_target][n_selection], bbox=bbox, n_frame=poly_roi_frame_number[n_selection])
     else:
-        exit("HANDLE THIS")
+        exit("NOT SUPPORTED RECTANGULAR SELECTION")
 else:
     video_length = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
     frame_to_init = int(video_length / loadeddict.get('re_init_span')) #ask for a selection every frame_to_init
@@ -219,7 +215,6 @@ else:
                         maskers.append(getMaskerByName(loadeddict.get('masker'),
                                         debug=DEBUG,
                                         frame=smallFrame,
-                                        bbox=bbox,
                                         config=loadeddict,
                                         poly_roi=poly_roi[n_target][0] if POLYNOMIAL_ROI else None, 
                                         update_mask=loadeddict.get('update_mask')
@@ -231,7 +226,7 @@ else:
                         colors.append(colorutils.pickNewColor(color_names_used))
                         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                         histo.append(hist_1)
-                        maskers[n_target].add_model(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
+                        maskers[n_target].addModel(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
                         bbox = None
                         n_target += 1
                 else:
@@ -307,10 +302,10 @@ if DEBUG:
     cv.imshow('Tracking', smallFrame)
     cv.waitKey(0)
 
-if DEBUG and SHOW_MASKS:
+if DEBUG and loadeddict.get('show_masks'):
     cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
-if DEBUG and SHOW_HOMOGRAPHY:
+if DEBUG and loadeddict.get('show_homography'):
     cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
@@ -387,8 +382,7 @@ while (1):
                     multiTracker = cv.legacy.MultiTracker_create()
                     for n_target in range(len(bboxes)):
                         nb = bboxes[n_target][status]
-                        boxi = (nb[0], nb[1], nb[2], nb[3]) #TODO: needed?
-                        multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
+                        multiTracker.add(createTracker(TRACKER), smallFrame, nb)
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -401,12 +395,11 @@ while (1):
                 cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 points.write(img)  # Save video for position tracking on the basketball diagram
 
-            # Show results
-            if DEBUG:
+                # Show results
                 cv.imshow('Tracking', smallFrame)
-                if SHOW_MASKS:
+                if loadeddict.get('show_masks'):
                     cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
-                if SHOW_HOMOGRAPHY:
+                if loadeddict.get('show_homography'):
                     cv.imshow('Tracking-Homography', img)
 
         if DEBUG:
