@@ -2,8 +2,6 @@ tracker: CSRT
 tau: 0.3
 resize_factor: 1
 
-over_segmentation: "quickshift"
-
 show_novelty_detection: True
 show_masks: False
 show_homography: False
@@ -24,17 +22,22 @@ masker: SemiSupervised
 custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
 
+over_segmentation: "quickshift"
+
+manual_roi_selection: False
 multi_selection: True
 re_init_span: 3 #define new ROI/RONI every tot_duration_clip/re_init_span, first selection excluded
 
 params:
-  n_estimators: 0
-  max_depth: 0
-  n_components: 0
-  novelty_detection: 0
+  n_estimators: 30
+  max_depth: 7
+  n_components: 1
+  novelty_detection: True
   over_segmentation: quickshift
 
-
+#
+# Examples of configuration for benchmark videos
+#
 #Configuration for bird_of_paradise
 #pts: [[[[328, 73], [337, 97], [348, 110], [337, 143], [336, 182], [371, 205], [403, 215], [425, 225], [454, 223], [484, 225], [508, 237], [509, 245], [499, 253], [483, 251], [470, 251], [458, 248], [441, 247], [424, 247], [445, 263], [436, 268], [401, 268], [381, 271], [364, 273], [354, 285], [342, 269], [329, 275], [305, 275], [283, 266], [267, 285], [259, 302], [236, 318], [246, 282], [231, 284], [239, 255], [245, 227], [258, 197], [272, 170], [274, 156], [280, 155], [294, 135], [305, 104], [315, 83]], [[302, 125], [341, 129], [374, 136], [407, 147], [427, 162], [448, 182], [466, 204], [477, 231], [471, 271], [438, 290], [399, 292], [350, 290], [267, 288], [225, 292], [181, 294], [145, 294], [119, 279], [107, 246], [119, 204], [141, 182], [177, 161], [216, 142], [265, 128], [283, 128]], [[234, 101], [284, 100], [319, 102], [352, 113], [420, 144], [476, 214], [466, 260], [440, 282], [406, 287], [326, 268], [238, 253], [157, 241], [124, 216], [129, 169], [156, 137], [213, 110]], [[338, 62], [355, 83], [342, 114], [332, 147], [339, 178], [366, 191], [392, 197], [422, 210], [460, 210], [508, 224], [498, 241], [422, 224], [431, 241], [446, 259], [389, 258], [357, 276], [341, 260], [324, 259], [296, 257], [270, 251], [261, 281], [236, 292], [249, 265], [234, 264], [243, 225], [261, 192], [278, 163], [270, 139], [285, 147], [300, 147], [315, 113], [328, 76]]]]
 #pts_frame_numbers: [0, 32, 64, 96]
