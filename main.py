@@ -88,8 +88,8 @@ with open(CONFIG_FILE) as f:
     TAU = loadeddict.get('tau')
     RESIZE_FACTOR = loadeddict.get('resize_factor')
     DEBUG = loadeddict.get('debug')
+    MANUAL_ROI_SELECTION = loadeddict.get('manual_roi_selection')
 
-MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
 BENCHMARK_OUT = None
 

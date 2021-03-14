@@ -54,11 +54,11 @@ class SemiSupervisedNonRigidMasker(Masker):
         PCA is used for outlier detection. A score is assigned to every pixel (the higher, the more probable that a pixel is an outlier).
         This score is used to lower the prediction of the discriminator, with the goal of correcting its predictions.
         """
-
+        
         if self.index <= 5:
             self.train_outlier.append(self.quantifyImage(frame))
         elif self.index == 6:
-            self.outlier = PCA(random_state=42, n_components=1).fit(self.train_outlier)
+            self.outlier = PCA(random_state=42, n_components=self.config["params"]["n_components"]).fit(self.train_outlier)
             print(self.outlier.explained_variance_ratio_)
         else:
             X = self.quantifyImage(frame)
@@ -157,13 +157,13 @@ class SemiSupervisedNonRigidMasker(Masker):
         X = X / 255   #normalize feature vectors
 
         #Train discriminative model                                              #30;7
-        clf = RandomForestClassifier(random_state=42, n_estimators=30, max_depth=7).fit(X,y) 
+        clf = RandomForestClassifier(random_state=42, n_estimators=self.config["params"]["n_estimators"], max_depth=self.config["params"]["max_depth"]).fit(X,y) 
         y_pred = clf.predict(X);   probs = clf.predict_proba(X)
         f1 = round(f1_score(y, y_pred), 2)
         print("F1 score classifier for frame {}= {}".format(n_frame, f1))
 
         #Train novelty detector
-        pca = PCA(n_components=1).fit(X[y == 1])
+        pca = PCA(n_components=self.config["params"]["n_components"]).fit(X[y == 1])
         X_pca = pca.transform(X)
         X_inv = pca.inverse_transform(X_pca)
         error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
@@ -207,7 +207,6 @@ class SemiSupervisedNonRigidMasker(Masker):
                     prob_map_pca[idx[0], idx[1]] = 255
                     #prob_map[idx] = 255 if segment_probs[key] > 0.5 else 0
         mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = prob_map_pca[:,:]
-
 
 
     @staticmethod
