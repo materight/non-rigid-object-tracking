@@ -417,8 +417,8 @@ while (1):
             out.write(smallFrame)  # Save video frame by frame
             out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
 
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
+            if cv.waitKey(1) & 0xFF == ord('q'):
+                break
     else:
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break

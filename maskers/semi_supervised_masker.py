@@ -18,7 +18,7 @@ from .masker import Masker
 import pandas as pd
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 
-from numba import jit
+from numba import jit, prange
 
 
 class SemiSupervisedNonRigidMasker(Masker):
@@ -109,8 +109,7 @@ class SemiSupervisedNonRigidMasker(Masker):
                                 labels=labels, 
                                 areas=areas, 
                                 outlier_threshold=self.novelty_det[self.current_model]["threshold"], 
-                                crop_frame_shape=crop_frame.shape)
-        
+                                crop_frame_shape=crop_frame.shape)        
         self.index += 1
         if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
             self.current_model += 1
@@ -156,7 +155,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         y = np.concatenate([y, y_nroi])
         X = X / 255   #normalize feature vectors
 
-        #Train discriminative model                                              #30;7
+        #Train discriminative model
         clf = RandomForestClassifier(random_state=42, n_estimators=self.config["params"]["n_estimators"], max_depth=self.config["params"]["max_depth"]).fit(X,y) 
         y_pred = clf.predict(X);   probs = clf.predict_proba(X)
         f1 = round(f1_score(y, y_pred), 2)
@@ -217,9 +216,10 @@ class SemiSupervisedNonRigidMasker(Masker):
         """
         #sobelx = cv.Sobel(frame, cv.CV_8U, 1, 0, ksize=3)
         #sobely = cv.Sobel(frame, cv.CV_8U, 0, 1, ksize=3)
-
-        #X_pos , X_neg , y_pos , y_neg = [[-1]*(6+6*8*3)] , [[-1]*(6+6*8*3)] , [1] , [1] #just to allow Numba to infer the type of the list. Will be later removed
-        X_test , y_test = [[-1.0]*(6+6*8*3)] , [1]
+        neighbors = ((-1,0), (+1,0), (0,-1), (0,+1),(+1,+1), (-1,-1), (+1,-1), (-1,+1),
+                     (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2), (-2,-2), (+2,-2), (-2,+2),
+                     (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3), (-3,-3), (+3,-3), (-3,+3))
+        X , y = [[-1.0]*(6+6*8*3)] , [1] #initialization just to allow Numba to infer the type of the list. Will be later removed
         for i in range(frame.shape[0]): 
             for j in range(frame.shape[1]):
                 features = [] 
@@ -227,9 +227,7 @@ class SemiSupervisedNonRigidMasker(Masker):
                 features.extend(list(frame_lab[i,j]))
                 #features.extend(sobelx[i,j].tolist())
                 #features.extend(sobely[i,j].tolist())
-                for span in ((-1,0), (+1,0), (0,-1), (0,+1),(+1,+1), (-1,-1), (+1,-1), (-1,+1),
-                             (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2), (-2,-2), (+2,-2), (-2,+2),
-                             (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3), (-3,-3), (+3,-3), (-3,+3)):
+                for span in neighbors:
                     neighbor = (i + span[0] , j + span[1])
                     if (neighbor[0] >= 0 and neighbor[0] < frame.shape[0] and
                        neighbor[1] >= 0 and neighbor[1] < frame.shape[1]):
@@ -238,22 +236,14 @@ class SemiSupervisedNonRigidMasker(Masker):
                         #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
                         #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
                     else:
-                        features.extend([-1.0]*6)
-                        
+                        features.extend([-1.0]*6)                        
                 if train and mask[i,j] > 0:
-                    #y_pos.append(1)
-                    #X_pos.append(features)
-                    X_test.append(features)
-                    y_test.append(1)
+                    y.append(1)
                 else:
-                    #y_neg.append(0)
-                    #X_neg.append(features)
-                    X_test.append(features)
-                    y_test.append(0)
-        #X = X_pos + X_neg
-        #y = y_pos + y_neg
-        X = np.array(X_test[1:])
-        y = np.array(y_test[1:], dtype=np.uint8)
+                    y.append(0)
+                X.append(features)
+        X = np.array(X[1:])
+        y = np.array(y[1:], dtype=np.uint8)
         return X , y
 
     def quantifyImage(self, image, bins=(4, 6, 3)):
