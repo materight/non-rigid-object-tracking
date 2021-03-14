@@ -36,7 +36,7 @@ if __name__ == "__main__":
     with open('polygons.yaml') as f:
         POLYGONS = yaml.full_load(f)
 
-    VIDEOS = ['bird_of_paradise']
+    VIDEOS = ['soldier']
     HYPERPARAMS = {
         'n_estimators': [10],
         'max_depth': [5],
