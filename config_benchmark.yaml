@@ -2,6 +2,11 @@ tracker: CSRT
 tau: 0.3
 resize_factor: 1
 
+show_novelty_detection: False
+show_masks: False
+show_homography: False
+debug: False
+
 out_players: output/Tracking/tracked_players.avi
 out_players_mask: output/Tracking/tracked_players_mask.avi
 out_homography: output/Tracking/tracked_homography.avi
