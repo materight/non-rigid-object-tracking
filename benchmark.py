@@ -33,8 +33,8 @@ if __name__ == "__main__":
         'n_estimators': [10],
         'max_depth': [5],
         'n_components': [1],
-        'novelty_detection': [True, False],
-        'over_segmentation': ['quickshift', 'felzenszwalb']
+        'novelty_detection': [True],#[True, False],
+        'over_segmentation': ['quickshift']#['quickshift', 'felzenszwalb']
     }
 
     # Generate params list with all possible combinations
@@ -52,7 +52,6 @@ if __name__ == "__main__":
     results = {}
     for i, params in enumerate(params_list):
         results[i] = params.copy()
-        bsum, tsum = 0, 0
         for j, v in enumerate(VIDEOS):
             configs = {
                 **CONFIGS, 
@@ -69,13 +68,13 @@ if __name__ == "__main__":
                 process = subprocess.Popen(['python', 'main.py', config_path, benchmark_out_path], stdout=FNULL)
                 process.wait()
                 pbar.update(n=1)
+                with open(benchmark_out_path) as benchmark_file:
+                    benchmark, time = map(float, benchmark_file.readline().split(';'))
+                    results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
             tp.apply_async(run)
-            with open(benchmark_out_path) as benchmark_file:
-                benchmark, time = map(float, benchmark_file.readline().split(';'))
-            bsum += benchmark
-            tsum += time
-            results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
-        results[i]['average'] = f'{bsum/len(VIDEOS):.2f} ({tsum/len(VIDEOS):.2f}s)'
+    tp.close() # No more thread to run
+    tp.join() # Wait for all the thread to finish
+    pbar.close()
+    # Save results
     results = pd.DataFrame.from_dict(results, orient='index')
     with open('benchmark_results.csv', 'w') as f: results.to_markdown(f, index=False, tablefmt='github')
-    pbar.close()
