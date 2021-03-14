@@ -69,45 +69,6 @@ def drawPolyROI(event, x, y, flags, params):
             cv.line(img=img2, pt1=(pts[i][0], pts[i][1]), pt2=(pts[i+1][0], pts[i+1][1]), color=(255, 0, 0), thickness=1)
     cv.imshow('ROI', img2)
 
-selectingLineBg, selectingLineFg = False, False
-def drawLineROI(event, x, y, flags, params):
-    global selectingLineBg, selectingLineFg
-    # :mouse callback function
-    img2 = params["image"].copy()
-    bgpts = params["bgpoints"]
-    fgpts = params["fgpoints"]
-    bgmask = params["bgmask"]
-    fgmask = params["fgmask"]
-    selection_history = params["selection_history"]
-    if event == cv.EVENT_LBUTTONDOWN: 
-        selectingLineBg = True
-        bgpts.append([])
-        selection_history.append('bg')
-    elif event == cv.EVENT_LBUTTONUP:
-        selectingLineBg = False
-    if event == cv.EVENT_RBUTTONDOWN:  
-        selectingLineFg = True
-        fgpts.append([])
-        selection_history.append('fg')
-    elif event == cv.EVENT_RBUTTONUP:
-        selectingLineFg = False
-    elif event == cv.EVENT_MOUSEMOVE:
-        if selectingLineBg: bgpts[-1].append((x, y))
-        elif selectingLineFg: fgpts[-1].append((x, y))
-    
-    def drawPoints(img, pts, color):
-        for seg in pts: # Draw points in pts
-            for i, p in enumerate(seg):
-                cv.circle(img, p, 1, color, -1)
-                if i > 0: cv.line(img, seg[i], seg[i - 1], color=color, thickness=2)
-    
-    drawPoints(img2, bgpts, (0,0,255))
-    drawPoints(img2, fgpts, (0,255,0))
-    drawPoints(bgmask, bgpts, 255)
-    drawPoints(fgmask, fgpts, 255)
-    cv.imshow('ROI-lines', img2)
-
-
 def returnIntersection(hist_1, hist_2):
     minima = np.minimum(hist_1, hist_2)
     intersection = np.true_divide(np.sum(minima), np.sum(hist_2))
@@ -458,9 +419,12 @@ while (1):
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
+end = time.time()
+tot_time = end - start
+
 if BENCHMARK_OUT is not None:
     with open(BENCHMARK_OUT, 'w') as f:
-        f.write(f'{np.mean(benchmarkDist):.2f}')
+        f.write(f'{np.mean(benchmarkDist)};{tot_time}')
 
 out.release()
 out_mask.release()
@@ -468,7 +432,6 @@ points.release()
 cv.destroyAllWindows()
 
 if DEBUG:
-    end = time.time()
     print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
     
     # Show outlier scores
