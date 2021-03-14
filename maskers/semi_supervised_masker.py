@@ -125,7 +125,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         return None
 
 
-    def addModel(self, frame, poly_roi, bbox, n_frame, show_prob_map=True):
+    def addModel(self, frame, poly_roi, bbox, n_frame, bbox_roni=None, show_prob_map=True):
         """
         Fit a discriminative model for the frame 'frame' taking as foreground the pixels inside the mask defined 
         by 'poly_roi'.
@@ -137,6 +137,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             poly_roi: Binary mask defined by the points provided by the user
             bbox: Bounding box derived from the user selection
             n_frame: Frame number
+            bbox_roni: If not null, contains the bbox to set as RONI, without asking to the user
             show_prob_map: Whether or not showing a plot with the F1 score of the model on the training frame
         """
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
@@ -150,7 +151,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         cv.fillPoly(mask, np.array([p], dtype=np.int32), 255)
 
         X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), mask, train=True)
-        X_nroi , y_nroi = self.getRONI(frame)
+        X_nroi , y_nroi , bbox_roni = self.getRONI(frame, bbox_roni)
         X = np.concatenate([X, X_nroi], axis=0)
         y = np.concatenate([y, y_nroi])
         X = X / 255   #normalize feature vectors
@@ -181,6 +182,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         if show_prob_map:
             prob_map = (probs[:-len(X_nroi), 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
             cv.imshow("prob", prob_map)
+        return bbox_roni
 
     @staticmethod
     @jit(nopython=True)
@@ -261,16 +263,17 @@ class SemiSupervisedNonRigidMasker(Masker):
         return hist
 
 
-    def getRONI(self, frame):
+    def getRONI(self, frame, bbox):
         """
         Select Region of Non-Interest (area that surely belongs to the background). 
         Augment the dataset of feature vector with more negative (background) samples, to increase (maybe) the discriminative power of the 
         classifier
         """
-        bbox = cv.selectROI('Select one RONI', frame, False)
+        if bbox is None:
+            bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), np.array([], ndmin=2, dtype=np.uint8), train=False)
-        return X , y
+        return X , y , bbox
 
 """
 def defineNewMask(self, prevBbox, smallFrame):

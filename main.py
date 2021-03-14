@@ -89,7 +89,7 @@ with open(CONFIG_FILE) as f:
     RESIZE_FACTOR = loadeddict.get('resize_factor')
     DEBUG = loadeddict.get('debug')
 
-MANUAL_ROI_SELECTION = True
+MANUAL_ROI_SELECTION = False
 POLYNOMIAL_ROI = True
 BENCHMARK_OUT = None
 
@@ -101,8 +101,6 @@ if len(sys.argv) > 2:
     BENCHMARK_OUT = sys.argv[2]
     DEBUG = False
     MANUAL_ROI_SELECTION = False
-
-
 
 # Read homography matrix
 with open('configs/homography_19points.yaml') as f:
@@ -125,7 +123,7 @@ first_frame = smallFrame.copy()
 kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
 maskers = []
 color_names_used = set()
-bboxes = []
+bboxes , bboxes_roni = [] , []
 poly_roi = []
 colors = []
 histo = []
@@ -149,8 +147,10 @@ if not MANUAL_ROI_SELECTION:
     if POLYNOMIAL_ROI:
         poly_roi =  loadeddict.get('pts')
         poly_roi_frame_number =  loadeddict.get('pts_frame_numbers')
+        bboxes_roni_tmp =  loadeddict.get('bboxes_roni')
         for n_target , target_selection in enumerate(poly_roi): #iterate over targets
             bboxes.append([])
+            bboxes_roni.append([])
             maskers.append(getMaskerByName(loadeddict.get('masker'),
                             debug=DEBUG,
                             frame=smallFrame, 
@@ -176,7 +176,12 @@ if not MANUAL_ROI_SELECTION:
                 if not ok: exit("Fatal error!")
                 smallFrame_succ = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 
-                maskers[n_target].addModel(frame=smallFrame_succ, poly_roi=poly_roi[n_target][n_selection], bbox=bbox, n_frame=poly_roi_frame_number[n_selection])
+                bbox_roni = maskers[n_target].addModel(frame=smallFrame_succ, 
+                                                       poly_roi=poly_roi[n_target][n_selection], 
+                                                       bbox=bbox, 
+                                                       bbox_roni=bboxes_roni_tmp[n_target][n_selection] if bboxes_roni_tmp is not None else None, #for automatic retrivial of bbox_roni
+                                                       n_frame=poly_roi_frame_number[n_selection])
+                bboxes_roni[-1].append(bbox_roni)
     else:
         exit("NOT SUPPORTED RECTANGULAR SELECTION")
 else:
@@ -214,6 +219,7 @@ else:
                     crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
                     if k < frame_to_init: #first iteration, bboxes is still equal to [] 
                         bboxes.append([])
+                        bboxes_roni.append([])
                         #now init a masker for every target in the first selection. For the subsequent selections, I'll call a method for fitting the multiple models
                         maskers.append(getMaskerByName(loadeddict.get('masker'),
                                         debug=DEBUG,
@@ -229,7 +235,8 @@ else:
                         colors.append(colorutils.pickNewColor(color_names_used))
                         hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
                         histo.append(hist_1)
-                        maskers[n_target].addModel(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
+                        bbox_roni = maskers[n_target].addModel(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
+                        bboxes_roni[n_target].append(bbox_roni)
                         bbox = None
                         n_target += 1
                 else:
@@ -242,7 +249,6 @@ else:
                     if not loadeddict.get('multi_selection'):
                         stop_selection = True
                 if POLYNOMIAL_ROI and key == ord("\r"):
-                    print("[INFO] ROI coordinates:", pts)
                     if len(pts) >= 3:
                         if k < frame_to_init:
                             poly_roi.append([])
@@ -260,6 +266,7 @@ else:
             smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
     
 print('Selected poly roi: {}\n'.format(poly_roi))
+print('Selected bboxes_roi: {}\n'.format(bboxes_roni))
 if poly_roi_frame_number is not None:
     print('Selected frames: {}\n'.format(poly_roi_frame_number))
 
