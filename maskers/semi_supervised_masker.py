@@ -235,29 +235,25 @@ class SemiSupervisedNonRigidMasker(Masker):
 
         num_neighbors = len(neighbors)
         tot = num_color_feature_from_frame * num_neighbors
-        X , y = [[-1.0]*tot] , [1] #initialization just to allow Numba to infer the type of the list. Will be later removed
-        for i in range(frames[0].shape[0]): 
-            for j in range(frames[0].shape[1]):
-                features = [] 
-                for frame in frames:
-                    #features.extend(list(frame[i,j])) substituted by the neighbor (0,0)
-                    #features.extend(sobelx[i,j].tolist())
-                    #features.extend(sobely[i,j].tolist())
-                    for span in neighbors:
+
+        X = np.full((frames[0].shape[0]*frames[0].shape[1], tot), -1.0)
+        y = np.full((frames[0].shape[0]*frames[0].shape[1]), 0)
+        for q , frame in enumerate(frames):
+            c = 0
+            for i in range(frames[0].shape[0]): 
+                for j in range(frames[0].shape[1]):
+                    for k , span in enumerate(neighbors):
                         neighbor = (i + span[0] , j + span[1])
                         if (neighbor[0] >= 0 and neighbor[0] < frames[0].shape[0] and neighbor[1] >= 0 and neighbor[1] < frames[0].shape[1]):
-                            features.extend(list(frame[neighbor[0], neighbor[1]]))
-                            #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
-                            #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
-                        else:
-                            features.extend([-1.0]*3)                        
-                if train and mask[i,j] > 0:
-                    y.append(1)
-                else:
-                    y.append(0)
-                X.append(features)
-        X = np.array(X[1:])
-        y = np.array(y[1:], dtype=np.uint8)
+                            X[c, k*3 + q*num_neighbors*3 : k*3 + q*num_neighbors*3 + 3] = frame[neighbor[0], neighbor[1]]
+                        #else:
+                            #X[c, k*3 + q*num_neighbors*3 : k*3 + q*num_neighbors*3 + 3] = [-1.0]*3
+                    if q == 0:
+                        if train and mask[i,j] > 0:
+                            y[c] = 1
+                    c += 1
+        #X = np.array(X[1:])
+        #y = np.array(y[1:], dtype=np.uint8)
         return X , y
 
     def quantifyImage(self, image, bins=(4, 6, 3)):
