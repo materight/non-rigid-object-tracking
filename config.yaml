@@ -32,6 +32,7 @@ params:
   n_components: 1
   novelty_detection: True
   over_segmentation: quickshift
+  features: "3 hsv_lab"
 
 #
 # Examples of configuration for benchmark videos

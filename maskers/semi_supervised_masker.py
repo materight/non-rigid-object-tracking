@@ -78,7 +78,8 @@ class SemiSupervisedNonRigidMasker(Masker):
         bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox ) #enlarge the box
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
-        X , _ = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), np.array([], ndmin=2, dtype=np.uint8), train=False)
+        frames , params = self.buildFramesParameter(crop_frame)
+        X , _ = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), params, train=False)
         X = X / 255 
 
         X_pca = self.novelty_det[self.current_model]["model"].transform(X)
@@ -130,7 +131,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         return None
 
 
-    def addModel(self, frame, poly_roi, bbox, n_frame, bbox_roni=None, show_prob_map=True):
+    def addModel(self, frame, poly_roi, bbox, n_frame, bbox_roni=None, show_prob_map=False):
         """
         Fit a discriminative model for the frame 'frame' taking as foreground the pixels inside the mask defined 
         by 'poly_roi'.
@@ -155,7 +156,8 @@ class SemiSupervisedNonRigidMasker(Masker):
         mask = np.zeros([bbox[3], bbox[2]], dtype=np.uint8)
         cv.fillPoly(mask, np.array([p], dtype=np.int32), 255)
 
-        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), mask, train=True)
+        frames , params = self.buildFramesParameter(crop_frame)
+        X , y = self.getFeatures(bbox, frames, mask, params, train=True)
         X_nroi , y_nroi , bbox_roni = self.getRONI(frame, bbox_roni)
         X = np.concatenate([X, X_nroi], axis=0)
         y = np.concatenate([y, y_nroi])
@@ -216,33 +218,39 @@ class SemiSupervisedNonRigidMasker(Masker):
 
     @staticmethod
     @jit(nopython=True)
-    def getRGBFeaturesWithNeighbors(frame, bbox, frame_hsv, frame_lab, mask, train=False):
-        """
-        Return RGB values of the 4-neighboorood along with the central pixel's values.
-        """
+    def getFeatures(bbox, frames, mask, params, train=False):
         #sobelx = cv.Sobel(frame, cv.CV_8U, 1, 0, ksize=3)
         #sobely = cv.Sobel(frame, cv.CV_8U, 0, 1, ksize=3)
-        neighbors = ((-1,0), (+1,0), (0,-1), (0,+1),(+1,+1), (-1,-1), (+1,-1), (-1,+1),
-                     (-2,0), (+2,0), (0,-2), (0,+2),(+2,+2), (-2,-2), (+2,-2), (-2,+2),
-                     (-3,0), (+3,0), (0,-3), (0,+3),(+3,+3), (-3,-3), (+3,-3), (-3,+3))
-        X , y = [[-1.0]*(6+6*8*3)] , [1] #initialization just to allow Numba to infer the type of the list. Will be later removed
-        for i in range(frame.shape[0]): 
-            for j in range(frame.shape[1]):
+        
+        num_color_feature_from_frame = len(frames) * 3
+        
+        if params[0] == "1":
+            neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1]]
+        elif params[0] == "2":
+            neighbors = [[0,0], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2]]
+        elif params[0] == "3":
+            neighbors = [[0,0], [-3,0], [+3,0], [0,-3], [0,+3],[+3,+3], [-3,-3], [+3,-3], [-3,+3]]
+        else:
+            print("Parameter not supported")
+
+        num_neighbors = len(neighbors)
+        tot = num_color_feature_from_frame * num_neighbors
+        X , y = [[-1.0]*tot] , [1] #initialization just to allow Numba to infer the type of the list. Will be later removed
+        for i in range(frames[0].shape[0]): 
+            for j in range(frames[0].shape[1]):
                 features = [] 
-                features.extend(list(frame_hsv[i,j]))
-                features.extend(list(frame_lab[i,j]))
-                #features.extend(sobelx[i,j].tolist())
-                #features.extend(sobely[i,j].tolist())
-                for span in neighbors:
-                    neighbor = (i + span[0] , j + span[1])
-                    if (neighbor[0] >= 0 and neighbor[0] < frame.shape[0] and
-                       neighbor[1] >= 0 and neighbor[1] < frame.shape[1]):
-                        features.extend(list(frame_hsv[neighbor[0], neighbor[1]]))
-                        features.extend(list(frame_lab[neighbor[0], neighbor[1]]))
-                        #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
-                        #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
-                    else:
-                        features.extend([-1.0]*6)                        
+                for frame in frames:
+                    #features.extend(list(frame[i,j])) substituted by the neighbor (0,0)
+                    #features.extend(sobelx[i,j].tolist())
+                    #features.extend(sobely[i,j].tolist())
+                    for span in neighbors:
+                        neighbor = (i + span[0] , j + span[1])
+                        if (neighbor[0] >= 0 and neighbor[0] < frames[0].shape[0] and neighbor[1] >= 0 and neighbor[1] < frames[0].shape[1]):
+                            features.extend(list(frame[neighbor[0], neighbor[1]]))
+                            #features.extend(sobelx[neighbor[0], neighbor[1]].tolist())
+                            #features.extend(sobely[neighbor[0], neighbor[1]].tolist())
+                        else:
+                            features.extend([-1.0]*3)                        
                 if train and mask[i,j] > 0:
                     y.append(1)
                 else:
@@ -267,8 +275,23 @@ class SemiSupervisedNonRigidMasker(Masker):
         if bbox is None:
             bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        X , y = self.getRGBFeaturesWithNeighbors(crop_frame, bbox, cv.cvtColor(crop_frame, cv.COLOR_BGR2HSV), cv.cvtColor(crop_frame, cv.COLOR_BGR2LAB), np.array([], ndmin=2, dtype=np.uint8), train=False)
+        frames , params = self.buildFramesParameter(crop_frame)
+        X , y = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), params, train=False)
         return X , y , bbox
+
+    
+    def buildFramesParameter(self, frame):
+        frames = []
+        params = self.config["params"]["features"].split()
+        for e in params[1].split("_"):
+            if e == "rgb":
+                f = frame
+            elif e == "hsv":
+                f = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+            elif e == "lab":
+                f = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
+            frames.append(f)
+        return frames , params
 
 """
 def defineNewMask(self, prevBbox, smallFrame):
