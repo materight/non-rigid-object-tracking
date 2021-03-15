@@ -19,7 +19,9 @@ def run_main(i, v, config_path, benchmark_out_path, results):
     pbar.update(n=1)
     with open(benchmark_out_path) as benchmark_file:
         benchmark, time = map(float, benchmark_file.readline().split(';'))
-        results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
+        # results[i][v] = f'{benchmark:.2f} ({time:.2f}s)'
+        results[i][v+'_benchmark'] = benchmark
+        results[i][v+'_time'] = time
 
 if __name__ == "__main__":
     '''
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     VIDEOS = ['soldier']
     HYPERPARAMS = {
         'n_estimators': [10],
-        'max_depth': [5],
+        'max_depth': [7],
         'n_components': [1],
         'novelty_detection': [True],#[True, False],
         'over_segmentation': ['quickshift']#['quickshift', 'felzenszwalb']
@@ -79,4 +81,5 @@ if __name__ == "__main__":
     pbar.close()
     # Save results
     results = pd.DataFrame.from_dict(results, orient='index')
-    with open('benchmark_results.csv', 'w') as f: results.to_markdown(f, index=False, tablefmt='github')
+    #with open('benchmark_results.csv', 'w') as f: results.to_markdown(f, index=False, tablefmt='github')
+    results.to_csv('benchmark_results.csv', index=False)
