@@ -72,22 +72,24 @@ class SemiSupervisedNonRigidMasker(Masker):
             X_inv = self.outlier.inverse_transform(X_pca)
             error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
             self.scores.append(error)
-
         
         enlarge_bbox = 20 #20 pixels in all directions
         bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox ) #enlarge the box
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
         frames , params = self.buildFramesParameter(crop_frame)
-        X , _ = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), params, train=False)
+        X , _ = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), int(params[0]), params, train=False)
         X = X / 255 
 
-        X_pca = self.novelty_det[self.current_model]["model"].transform(X)
-        X_inv = self.novelty_det[self.current_model]["model"].inverse_transform(X_pca)
-        error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
-        sa = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()
+        if self.config["params"]["novelty_detection"]:
+            X_pca = self.novelty_det[self.current_model]["model"].transform(X)
+            X_inv = self.novelty_det[self.current_model]["model"].inverse_transform(X_pca)
+            error = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
+            sa = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()
+        else: 
+            sa = np.zeros((crop_frame.shape[0], crop_frame.shape[1]), dtype=np.uint8)
 
-        if self.config.get("show_novelty_detection"):
+        if self.config["params"]["novelty_detection"] and self.config.get("show_novelty_detection"):
             error[error <= self.novelty_det[self.current_model]["threshold"]] = 0 
             error[error >  self.novelty_det[self.current_model]["threshold"]] = 255
             cv.imshow("Novelty_detection", error.reshape(crop_frame.shape[0], crop_frame.shape[1]))
@@ -96,6 +98,8 @@ class SemiSupervisedNonRigidMasker(Masker):
             segments = quickshift(crop_frame, kernel_size=3, max_dist=6, ratio=0.5, random_seed=42)
         elif self.config["params"]["over_segmentation"] == "felzenszwalb":
             segments = felzenszwalb(crop_frame, scale=100, sigma=0.5, min_size=50)
+        elif self.config["params"]["over_segmentation"] == "SLIC":
+            segments = slic(crop_frame, n_segments=250, compactness=10, sigma=1, start_label=0)
         else:
             segments = None
 
@@ -104,6 +108,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         if self.multi_selection and len(self.models) > self.current_model + 1: #there is a future model
             probs_future_model = self.models[self.current_model+1]["model"].predict_proba(X)
             probs = np.mean([probs_curr_model, probs_future_model], axis=0) #TODO: weighted average
+
         else:
             probs = probs_curr_model
 
@@ -118,7 +123,7 @@ class SemiSupervisedNonRigidMasker(Masker):
                                 outlier_threshold=self.novelty_det[self.current_model]["threshold"], 
                                 crop_frame_shape=crop_frame.shape)  
         #apply dilation to enlarge the shape and fill holes
-        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((7,7),np.uint8), iterations = 1) 
+        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((self.config["params"]["dilation_kernel"],self.config["params"]["dilation_kernel"]),np.uint8), iterations = 1) 
 
         self.index += 1
         if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
@@ -160,7 +165,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         cv.fillPoly(mask, np.array([p], dtype=np.int32), 255)
 
         frames , params = self.buildFramesParameter(crop_frame)
-        X , y = self.getFeatures(bbox, frames, mask, params, train=True)
+        X , y = self.getFeatures(bbox, frames, mask, int(params[0]), params, train=True)
         X_nroi , y_nroi , bbox_roni = self.getRONI(frame, bbox_roni)
         X = np.concatenate([X, X_nroi], axis=0)
         y = np.concatenate([y, y_nroi])
@@ -221,7 +226,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
     @staticmethod
     @jit(nopython=True)
-    def getFeatures(bbox, frames, mask, params, train=False):
+    def getFeatures(bbox, frames, mask, n_neighbors, params, train=False):
         #sobelx = cv.Sobel(frame, cv.CV_8U, 1, 0, ksize=3)
         #sobely = cv.Sobel(frame, cv.CV_8U, 0, 1, ksize=3)
         
@@ -233,8 +238,14 @@ class SemiSupervisedNonRigidMasker(Masker):
             neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2]]
         elif params[0] == "3":
             neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2], [-3,0], [+3,0], [0,-3], [0,+3],[+3,+3], [-3,-3], [+3,-3], [-3,+3]]
+        elif params[0] == "5":
+            neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2], [-3,0], [+3,0], [0,-3], [0,+3],[+3,+3], [-3,-3], [+3,-3], [-3,+3], [-4,0], [+4,0], [0,-4], [0,+4],[+4,+4], [-4,-4], [+4,-4], [-4,+4], [-5,0], [+5,0], [0,-5], [0,+5],[+5,+5], [-5,-5], [+5,-5], [-5,+5], [-6,0], [+6,0], [0,-6], [0,+6],[+6,+6], [-6,-6], [+6,-6], [-6,+6], [-7,0], [+7,0], [0,-7], [0,+7],[+7,+7], [-7,-7], [+7,-7], [-7,+7], [-8,0], [+8,0], [0,-8], [0,+8],[+8,+8], [-8,-8], [+8,-8], [-8,+8]]
         else:
-            print("Parameter not supported")
+            neighbors = [[0,0]]
+            i = 1
+            for q in range(n_neighbors):
+                neighbors.extend([[-i,0], [+i,0], [0,-i], [0,+i],[+i,+i], [-i,-i], [+i,-i], [-i,+i]])
+                i += 1
 
         num_neighbors = len(neighbors)
         tot = num_color_feature_from_frame * num_neighbors
@@ -272,7 +283,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             bbox = cv.selectROI('Select one RONI', frame, False)
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         frames , params = self.buildFramesParameter(crop_frame)
-        X , y = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), params, train=False)
+        X , y = self.getFeatures(bbox, frames, np.array([], ndmin=2, dtype=np.uint8), int(params[0]), params, train=False)
         return X , y , bbox
 
     
@@ -288,6 +299,8 @@ class SemiSupervisedNonRigidMasker(Masker):
                 f = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
             frames.append(f)
         return frames , params
+
+
 
 """
 def defineNewMask(self, prevBbox, smallFrame):
