@@ -116,7 +116,10 @@ class SemiSupervisedNonRigidMasker(Masker):
                                 labels=labels, 
                                 areas=areas, 
                                 outlier_threshold=self.novelty_det[self.current_model]["threshold"], 
-                                crop_frame_shape=crop_frame.shape)        
+                                crop_frame_shape=crop_frame.shape)  
+        #apply dilation to enlarge the shape and fill holes
+        mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((7,7),np.uint8), iterations = 1) 
+
         self.index += 1
         if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
             self.current_model += 1
@@ -124,7 +127,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             return self.current_model #to flag the re-initialization also of the tracker
 
         if self.debug:
-            cv.imshow("Prob. map superpixels", mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2])
+            cv.imshow("Prob. map superpixels", cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((7,7),np.uint8), iterations = 1))
             #prob_map = (probs[:, 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
             #cv.imshow("Salicency map", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
 
