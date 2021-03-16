@@ -41,11 +41,12 @@ if __name__ == "__main__":
     VIDEOS = ['soldier']
     HYPERPARAMS = {
         'n_estimators': [30],
-        'max_depth': [7],
+        'max_depth': [7,9],
         'n_components': [1],
-        'novelty_detection': [True],#[True, False],
-        'over_segmentation': ['quickshift'],#['quickshift', 'felzenszwalb']
-        'features': ['3 hsv_lab']
+        'novelty_detection': [True, False],
+        'over_segmentation': ['felzenszwalb'], #['quickshift', 'felzenszwalb', 'SLIC'],
+        'features': ['5 hsv_lab','8 hsv_lab'],
+        "dilation_kernel": [7]
     }
 
     # Generate params list with all possible combinations
