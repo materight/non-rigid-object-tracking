@@ -227,9 +227,9 @@ class SemiSupervisedNonRigidMasker(Masker):
         if params[0] == "1":
             neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1]]
         elif params[0] == "2":
-            neighbors = [[0,0], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2]]
+            neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2]]
         elif params[0] == "3":
-            neighbors = [[0,0], [-3,0], [+3,0], [0,-3], [0,+3],[+3,+3], [-3,-3], [+3,-3], [-3,+3]]
+            neighbors = [[0,0], [-1,0], [+1,0], [0,-1], [0,+1],[+1,+1], [-1,-1], [+1,-1], [-1,+1], [-2,0], [+2,0], [0,-2], [0,+2],[+2,+2], [-2,-2], [+2,-2], [-2,+2], [-3,0], [+3,0], [0,-3], [0,+3],[+3,+3], [-3,-3], [+3,-3], [-3,+3]]
         else:
             print("Parameter not supported")
 
@@ -246,15 +246,12 @@ class SemiSupervisedNonRigidMasker(Masker):
                         neighbor = (i + span[0] , j + span[1])
                         if (neighbor[0] >= 0 and neighbor[0] < frames[0].shape[0] and neighbor[1] >= 0 and neighbor[1] < frames[0].shape[1]):
                             X[c, k*3 + q*num_neighbors*3 : k*3 + q*num_neighbors*3 + 3] = frame[neighbor[0], neighbor[1]]
-                        #else:
-                            #X[c, k*3 + q*num_neighbors*3 : k*3 + q*num_neighbors*3 + 3] = [-1.0]*3
                     if q == 0:
                         if train and mask[i,j] > 0:
                             y[c] = 1
                     c += 1
-        #X = np.array(X[1:])
-        #y = np.array(y[1:], dtype=np.uint8)
         return X , y
+
 
     def quantifyImage(self, image, bins=(4, 6, 3)):
         hist = cv.calcHist([image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256])
