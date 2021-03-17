@@ -83,5 +83,6 @@ if __name__ == "__main__":
     pbar.close()
     # Save results
     results = pd.DataFrame.from_dict(results, orient='index')
+    results['avg_benchmark'] = results[[f'{v}_benchmark' for v in VIDEOS]].mean(axis=1) # Compute average benchmark column
     #with open('benchmark_results.csv', 'w') as f: results.to_markdown(f, index=False, tablefmt='github')
     results.to_csv('benchmark_results.csv', index=False)
