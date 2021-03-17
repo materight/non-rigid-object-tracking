@@ -197,6 +197,7 @@ else:
             if POLYNOMIAL_ROI:
                 pts = []
                 cv.namedWindow('ROI')
+                cv.imshow('ROI', smallFrame)
                 cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
                 print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
                 print("[INFO] Press ENTER to determine the selection area and save it")
