@@ -73,7 +73,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
             self.scores.append(error)
         
-        enlarge_bbox = 20 #20 pixels in all directions
+        enlarge_bbox = 25 #20 pixels in all directions
         bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox ) #enlarge the box
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
@@ -107,8 +107,17 @@ class SemiSupervisedNonRigidMasker(Masker):
         probs_curr_model = self.models[self.current_model]["model"].predict_proba(X)
         if self.multi_selection and len(self.models) > self.current_model + 1: #there is a future model
             probs_future_model = self.models[self.current_model+1]["model"].predict_proba(X)
-            probs = np.mean([probs_curr_model, probs_future_model], axis=0) #TODO: weighted average
-
+            
+            span = self.models[self.current_model+1]['n_frame'] - self.models[self.current_model]['n_frame']
+            tmp = self.index - self.models[self.current_model+1]['n_frame']
+            
+            probs = np.average([probs_curr_model, probs_future_model], axis=0, weights=[1-(tmp/span), tmp/span])  #weighted average
+            if self.config["params"]["novelty_detection"]:
+                X_pca = self.novelty_det[self.current_model+1]["model"].transform(X)
+                X_inv = self.novelty_det[self.current_model+1]["model"].inverse_transform(X_pca)
+                error_future_model = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
+                sa_future_model = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()                
+                sa = np.average([sa, sa_future_model], axis=0, weights=[1-(tmp/span), tmp/span])
         else:
             probs = probs_curr_model
 
