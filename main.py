@@ -146,7 +146,7 @@ if not MANUAL_ROI_SELECTION:
         poly_roi =  loadeddict.get('pts')
         poly_roi_frame_number =  loadeddict.get('pts_frame_numbers')
         bboxes_roni_tmp =  loadeddict.get('bboxes_roni')
-        for n_target , target_selection in enumerate(poly_roi): #iterate over targets
+        for n_target, target_selection in enumerate(poly_roi): #iterate over targets
             bboxes.append([])
             bboxes_roni.append([])
             maskers.append(getMaskerByName(loadeddict.get('masker'),
@@ -388,11 +388,41 @@ while (1):
             if loadeddict.get('masker') not in loadeddict.get('custom_trackers'):
                 status = maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
                 if status is not None: #re-init the Tracker
-                    print('RE-INITIALIZE TRACKER n° %d' % status)
-                    multiTracker = cv.legacy.MultiTracker_create()
-                    for n_target in range(len(bboxes)):
-                        nb = bboxes[n_target][status]
-                        multiTracker.add(createTracker(TRACKER), smallFrame, nb)
+                    print('RE-INITIALIZE TRACKER n° %d' % status) 
+                    multiTracker = cv.legacy.MultiTracker_create()        
+                    if loadeddict.get('masker') == 'GrabCut':
+                        if loadeddict.get('show_masks'):
+                            cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
+                        maskers= []
+                        for n_target in range(len(bboxes)):
+                            # Request new mask selection
+                            pts = []
+                            cv.namedWindow('ROI')
+                            cv.imshow('ROI', smallFrame)
+                            cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
+                            print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
+                            print("[INFO] Press ENTER to determine the selection area and save it")
+                            print("[INFO] Press q or ESC to quit")
+                            while True:
+                                key = cv.waitKey(0) & 0xFF
+                                if key == ord(' ') or key == ord("\r"):  # q or enter is pressed
+                                    cv.destroyWindow('ROI')
+                                    break
+                            maskers.append(getMaskerByName(loadeddict.get('masker'),
+                                debug=DEBUG,
+                                frame=smallFrame, 
+                                config=loadeddict,
+                                poly_roi=pts
+                            ))
+                            bbox = cv.boundingRect(np.array(pts))
+                            maskedFrame = np.zeros_like(smallFrame, dtype=np.uint8)
+                            maskers[n_target].update(bbox=bbox, frame=smallFrame, mask=maskedFrame, color=colors[n_target])
+                            multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
+                            pts = []
+                    else: 
+                        for n_target in range(len(bboxes)):
+                            nb = bboxes[n_target][status]
+                            multiTracker.add(createTracker(TRACKER), smallFrame, nb)
 
             # Compute benchmark w.r.t. ground truth
             if truthFrame is not None:
@@ -436,15 +466,17 @@ if DEBUG:
 cv.destroyAllWindows()
 
 if DEBUG:
-    print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
+    print(f'\nTotal benchmark score: {np.mean(benchmarkDist)}')
+    print(f'Total time consumed for tracking: {(end - start):.2f}s')
     
     # Show outlier scores
-    plt.plot(maskers[0].scores)
-    plt.xlabel("Number of Frame")
-    plt.ylabel("Score")
-    plt.title("Outlier score distribution")
-    plt.tight_layout()
-    plt.show()
+    if hasattr(maskers[0], 'scores'):
+        plt.plot(maskers[0].scores)
+        plt.xlabel("Number of Frame")
+        plt.ylabel("Score")
+        plt.title("Outlier score distribution")
+        plt.tight_layout()
+        plt.show()
 
     # Show benchmark
     plt.plot(benchmarkDist)
