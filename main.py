@@ -437,6 +437,7 @@ cv.destroyAllWindows()
 
 if DEBUG:
     print(f'\nTotal time consumed for tracking: {(end - start):.2f}s')
+    print(np.mean(benchmarkDist))
     
     # Show outlier scores
     plt.plot(maskers[0].scores)
