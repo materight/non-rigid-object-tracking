@@ -3,7 +3,7 @@ tau: 0.3
 resize_factor: 1
 
 show_novelty_detection: True
-show_masks: False
+show_masks: True
 show_homography: False
 debug: True
 
@@ -18,7 +18,7 @@ input_video: output/Video/SegTrack2/Video/soldier.mp4
 input_truth: output/Video/SegTrack2/Truth/soldier.mp4 # Can be null
 input_image_homography: sources/Map/basket_field.jpg
 
-masker: SemiSupervised
+masker: GrabCut
 custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
 
