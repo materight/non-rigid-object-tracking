@@ -38,14 +38,14 @@ if __name__ == "__main__":
     with open('polygons.yaml') as f:
         POLYGONS = yaml.full_load(f)
 
-    VIDEOS = ['soldier']
+    VIDEOS = ['soldier', 'frog', 'worm', 'bmx']
     HYPERPARAMS = {
-        'n_estimators': [30],
-        'max_depth': [7,9],
+        'n_estimators': [20, 30],
+        'max_depth': [7,10],
         'n_components': [1],
         'novelty_detection': [True, False],
-        'over_segmentation': ['felzenszwalb'], #['quickshift', 'felzenszwalb', 'SLIC'],
-        'features': ['5 hsv_lab','8 hsv_lab'],
+        'over_segmentation': ['quickshift', 'felzenszwalb'],
+        'features': ['8 hsv_lab', '6 lab'],
         "dilation_kernel": [7]
     }
 
