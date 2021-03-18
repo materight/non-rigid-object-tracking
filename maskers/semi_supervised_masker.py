@@ -5,17 +5,14 @@ from mpl_toolkits.mplot3d import Axes3D
 from collections import defaultdict
 import copy
 
-from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
-from sklearn.svm import SVC
 from sklearn.decomposition import PCA
-from sklearn.linear_model import SGDClassifier
-from sklearn.ensemble import RandomForestClassifier, IsolationForest
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import f1_score
 
 from .masker import Masker
 
-import pandas as pd
 from skimage.segmentation import slic, quickshift, mark_boundaries, felzenszwalb, watershed
 
 from numba import jit, prange
@@ -42,6 +39,14 @@ class SemiSupervisedNonRigidMasker(Masker):
         self.novelty_det = []
         self.current_model = 0
         self.multi_selection = self.config.get("multi_selection")
+
+        self.sift = cv.SIFT_create()     
+
+        # FLANN parameters
+        FLANN_INDEX_KDTREE = 1
+        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+        search_params = dict(checks=50)   # or pass empty dictionary
+        self.flann = cv.FlannBasedMatcher(index_params, search_params)
 
         #if self.poly_roi:  # convert the list of points into a binary map
         #    for i in range(len(self.poly_roi)):  # adapt coordinates
@@ -73,7 +78,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
             self.scores.append(error)
         
-        enlarge_bbox = 25 #20 pixels in all directions
+        enlarge_bbox = 20 #20 pixels in all directions
         bbox = (max(bbox[0]-enlarge_bbox,0), max(bbox[1]-enlarge_bbox,0), min(bbox[0]+bbox[2]+enlarge_bbox, frame.shape[1])-bbox[0]+enlarge_bbox, min(bbox[1]+bbox[3]+enlarge_bbox, frame.shape[0])-bbox[1]+enlarge_bbox ) #enlarge the box
         crop_frame = frame[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
 
@@ -112,7 +117,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             tmp = self.index - self.models[self.current_model+1]['n_frame']
             
             probs = np.average([probs_curr_model, probs_future_model], axis=0, weights=[1-(tmp/span), tmp/span])  #weighted average
-            if self.config["params"]["novelty_detection"]:
+            if False and self.config["params"]["novelty_detection"]:
                 X_pca = self.novelty_det[self.current_model+1]["model"].transform(X)
                 X_inv = self.novelty_det[self.current_model+1]["model"].inverse_transform(X_pca)
                 error_future_model = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
@@ -122,6 +127,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             probs = probs_curr_model
 
         labels , areas = np.unique(segments, return_counts=True)
+        priors = self.computePriors(crop_frame, segments, labels)
         self.compileSaliencyMap(probs=probs, 
                                 mask=mask, 
                                 segments=segments, 
@@ -129,12 +135,17 @@ class SemiSupervisedNonRigidMasker(Masker):
                                 bbox=bbox, 
                                 labels=labels, 
                                 areas=areas, 
+                                priors=priors,
+                                prior_weight=self.config["params"]["prior_weight"],
                                 outlier_threshold=self.novelty_det[self.current_model]["threshold"], 
                                 crop_frame_shape=crop_frame.shape)  
         #apply dilation to enlarge the shape and fill holes
         mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2] = cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((self.config["params"]["dilation_kernel"],self.config["params"]["dilation_kernel"]),np.uint8), iterations = 1) 
 
         self.index += 1
+        self.prevFrame = crop_frame
+        #self.prevSegments = segments
+        self.prevForegroundMask = mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2]
         if self.multi_selection and len(self.models) > self.current_model+1 and self.index >= self.models[self.current_model+1]['n_frame']:
             self.current_model += 1
             print("\n \n CHANGE OF MODEL \n \n")
@@ -146,6 +157,42 @@ class SemiSupervisedNonRigidMasker(Masker):
             #cv.imshow("Salicency map", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
 
         return None
+
+    
+    def computePriors(self, crop_frame, segments, labels):
+        """
+        Extract features from the image within the mask estimated at the previous step, to be matched against the frame t+1.
+        Add a prior to superpixels where such matches take place.
+        """
+        priors = np.full(labels.shape, fill_value=-1,  dtype=np.float32) 
+        if self.index == 0:
+            return priors
+          
+        kp1, des1 = self.sift.detectAndCompute(self.prevFrame, self.prevForegroundMask)
+        kp2, des2 = self.sift.detectAndCompute(crop_frame,None)        
+        
+        matches = self.flann.knnMatch(des1, des2, k=2)
+
+        goodMatches = []
+        for m , n in matches:
+            sa = crop_frame.copy()
+            if m.distance < 0.7*n.distance:
+                goodMatches.append(m)
+
+        #filter out possible outliers based on the distance of matched points
+        dist = np.array([((kp2[m.trainIdx].pt[0]-kp1[m.queryIdx].pt[0]) ** 2 + (kp2[m.trainIdx].pt[1]-kp1[m.queryIdx].pt[1]) ** 2)**0.5 for m in goodMatches])
+        thrs = np.percentile(dist, 90)
+        goodMatches = np.array(goodMatches)[dist <= thrs]
+
+        for m in goodMatches:
+            label = segments[int(kp2[m.trainIdx].pt[1]), int(kp2[m.trainIdx].pt[0])]
+            priors[label] = 1
+            #idxs = np.nonzero(segments == label_curr_frame)
+            #tmp2[idxs] += 50             
+            #cv.imshow("tmp2", tmp2)
+        #img3 = cv.drawMatchesKnn(self.prevFrame, kp1, crop_frame, kp2, [[m] for m in goodMatches], None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        #plt.imshow(img3,),plt.show()
+        return priors
 
 
     def addModel(self, frame, poly_roi, bbox, n_frame, bbox_roni=None, show_prob_map=False):
@@ -210,7 +257,7 @@ class SemiSupervisedNonRigidMasker(Masker):
 
     @staticmethod
     @jit(nopython=True)
-    def compileSaliencyMap(probs, mask, segments, outlier_scores, crop_frame_shape, bbox, outlier_threshold, labels, areas):
+    def compileSaliencyMap(probs, mask, segments, outlier_scores, crop_frame_shape, bbox, outlier_threshold, labels, areas, priors, prior_weight):
         #segment_probs = defaultdict(float)
         segment_probs_pca = np.zeros_like(labels, dtype=np.float32) 
         c = 0
@@ -222,8 +269,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         #prob_map = np.zeros_like(segments, dtype=np.uint8)
         prob_map_pca = np.zeros_like(segments, dtype=np.uint8)
         for key in labels:
-            #segment_probs[key] /= areas[key] 
-            segment_probs_pca[key] /= areas[key] 
+            segment_probs_pca[key] = (segment_probs_pca[key] / areas[key]) * (1-prior_weight) + priors[key] * prior_weight
             
             if segment_probs_pca[key] > 0.5:
                 idxs = np.argwhere(segments == key)
