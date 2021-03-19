@@ -46,7 +46,8 @@ if __name__ == "__main__":
         'novelty_detection': [True, False],
         'over_segmentation': ['quickshift', 'felzenszwalb'],
         'features': ['8 hsv_lab', '6 lab'],
-        "dilation_kernel": [7]
+        "dilation_kernel": [7],
+        "prior_weight": [0.1, 0.0]
     }
 
     # Generate params list with all possible combinations
