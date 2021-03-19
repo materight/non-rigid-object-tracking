@@ -5,6 +5,7 @@ import skimage.segmentation as skiseg
 
 from .masker import Masker
 
+SHOW_KEYPOINTS = False
 REINIT_THRESHOLD = 0.5
 
 class GrabCut(Masker):
@@ -24,15 +25,16 @@ class GrabCut(Masker):
         self.bgptsPrev, self.bgdesPrev = self.computeFeatures(grayFrame, featureMask)
 
         # Print extracted points
-        #for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
-        #for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)
+        if SHOW_KEYPOINTS:
+            for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
+            for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)
 
     def addModel(self, **args):
         pass
 
     def computeFeatures(self, grayFrame, featureMask):
         # return np.flip(cv.goodFeaturesToTrack(grayFrame, mask=featureMask, maxCorners=100, qualityLevel=0.2, minDistance=7, blockSize=3).reshape(-1, 2), axis=1).astype(np.int)
-        extractor = cv.ORB_create()
+        extractor = cv.ORB_create(nfeatures=100000)
         kp, des = extractor.detectAndCompute(grayFrame, mask=featureMask)
         pts = np.array([(int(p.pt[1]), int(p.pt[0])) for p in kp])
         return pts, des
@@ -44,7 +46,6 @@ class GrabCut(Masker):
         prevFrame = cv.cvtColor(self.prevFrame, cv.COLOR_BGR2GRAY)
         nextFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-        '''
         # Every 10 frames recompute the tracked features
         if self.index % 10 == 0:
             featureMask = cv.dilate(self.prevMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5)))
@@ -52,7 +53,6 @@ class GrabCut(Masker):
             featureMask = np.where(featureMask == 0, 255, 0).astype(np.uint8) # Invert mask to compute background features
             featureMask = cv.erode(featureMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (32, 32))) # Apply erosion to avoid selecting features on the poly edges
             self.bgptsPrev, self.bgdesPrev = self.computeFeatures(prevFrame, featureMask)
-        '''
 
         # Compute new feature points and compute matching with previous points
         featureMask = np.zeros_like(nextFrame)
@@ -61,6 +61,10 @@ class GrabCut(Masker):
         featureMask = np.where(featureMask == 0, 255, 0).astype(np.uint8) # Invert mask to compute background features
         bgptsNew, bgdesNew = self.computeFeatures(nextFrame, featureMask)
         
+        # Force reinitialization if no point is found
+        if self.bgdesPrev is None or bgdesNew is None or self.fgdesPrev is None or fgdesNew is None:
+            return 1
+
         # Match
         bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
         bgmatches = bf.match(self.bgdesPrev, bgdesNew)
@@ -84,7 +88,7 @@ class GrabCut(Masker):
         # Initialize GraphCut mask with values obtained from foreground and background mask
         gcmask = np.full(frame.shape[:2], cv.GC_BGD, dtype=np.uint8)
         gcmask[int(bbox[1]):int(bbox[1]+bbox[3]), int(bbox[0]):int(bbox[0]+bbox[2])] = cv.GC_PR_BGD
-        # gcmask[tuple(self.bgptsPrev.T)] =  cv.GC_BGD # cv.GC_BGD
+        gcmask[tuple(self.bgptsPrev.T)] =  cv.GC_BGD # cv.GC_BGD
         gcmask[tuple(self.fgptsPrev.T)] =  cv.GC_FGD # cv.GC_FGD
 
         # Apply GrabCut using the the mask segmentation method
@@ -104,7 +108,8 @@ class GrabCut(Masker):
 
         # Draw resulting mask and frame
         mask[:, :, 2] = bmask
-        #for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
-        #for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)
+        if SHOW_KEYPOINTS:
+            for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
+            for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)
 
         return 1 if np.count_nonzero(bmask) < self.maskSize * REINIT_THRESHOLD else None # Return if a reinitialization should occur

@@ -387,6 +387,7 @@ while (1):
             # RE-INITIALIZATION END
 
             if loadeddict.get('masker') not in loadeddict.get('custom_trackers'):
+                originalFrame = smallFrame.copy()
                 status = maskers[i].update(bbox=bbox_new_t, frame=smallFrame, mask=maskedFrame, color=colors[i])
                 if status is not None: #re-init the Tracker
                     print('RE-INITIALIZE TRACKER n° %d' % status) 
@@ -399,8 +400,8 @@ while (1):
                             # Request new mask selection
                             pts = []
                             cv.namedWindow('ROI')
-                            cv.imshow('ROI', smallFrame)
-                            cv.setMouseCallback('ROI', drawPolyROI, {"image": smallFrame, "alpha": 0.6})
+                            cv.imshow('ROI', originalFrame)
+                            cv.setMouseCallback('ROI', drawPolyROI, {"image": originalFrame, "alpha": 0.6})
                             print("[INFO] Click the left button: select the point, right click: delete the last selected point, click the middle button: inspect the ROI area")
                             print("[INFO] Press ENTER to determine the selection area and save it")
                             print("[INFO] Press q or ESC to quit")
@@ -416,9 +417,10 @@ while (1):
                                 poly_roi=pts
                             ))
                             bbox = cv.boundingRect(np.array(pts))
-                            maskedFrame = np.zeros_like(smallFrame, dtype=np.uint8)
-                            maskers[n_target].update(bbox=bbox, frame=smallFrame, mask=maskedFrame, color=colors[n_target])
-                            multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
+                            maskedFrame = np.zeros_like(originalFrame, dtype=np.uint8)
+                            maskers[n_target].update(bbox=bbox, frame=originalFrame, mask=maskedFrame, color=colors[n_target])
+                            multiTracker.add(createTracker(TRACKER), originalFrame, bbox)
+                            smallFrame = originalFrame
                             pts = []
                     else: 
                         for n_target in range(len(bboxes)):
