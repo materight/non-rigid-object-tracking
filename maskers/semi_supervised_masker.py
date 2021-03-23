@@ -189,16 +189,16 @@ class SemiSupervisedNonRigidMasker(Masker):
         dist = np.array([((kp2[m.trainIdx].pt[0]-kp1[m.queryIdx].pt[0]) ** 2 + (kp2[m.trainIdx].pt[1]-kp1[m.queryIdx].pt[1]) ** 2)**0.5 for m in goodMatches])
         thrs = np.percentile(dist, 90)
         goodMatches = np.array(goodMatches)[dist <= thrs]
-        tmp2 = np.zeros(crop_frame.shape[:2], dtype=np.uint8) 
+        #tmp2 = np.zeros(crop_frame.shape[:2], dtype=np.uint8) 
 
         for m in goodMatches:
             label = segments[int(kp2[m.trainIdx].pt[1]), int(kp2[m.trainIdx].pt[0])]
             priors[label] = 1
-            idxs = np.nonzero(segments == label)
-            tmp2[idxs] += 255
-        cv.imshow("Prior", tmp2)
-        plt.imshow(mark_boundaries(cv.cvtColor(crop_frame, cv.COLOR_BGR2RGB), segments))
-        plt.show()
+            #idxs = np.nonzero(segments == label)
+            #tmp2[idxs] += 255
+        #cv.imshow("Prior", tmp2)
+        #plt.imshow(mark_boundaries(cv.cvtColor(crop_frame, cv.COLOR_BGR2RGB), segments))
+        #plt.show()
         #img3 = cv.drawMatchesKnn(self.prevFrame, kp1, crop_frame, kp2, [[m] for m in goodMatches], None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         #cv.imshow("Feature match", img3)
         return priors
