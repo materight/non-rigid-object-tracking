@@ -10,3 +10,6 @@ class Masker(ABC):
     # abstract method 
     def update(self): 
         pass
+
+    def addModel(self, frame, poly_roi, bbox, n_frame, bbox_roni=None, show_prob_map=False):
+        pass
