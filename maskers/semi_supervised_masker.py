@@ -114,14 +114,14 @@ class SemiSupervisedNonRigidMasker(Masker):
             probs_future_model = self.models[self.current_model+1]["model"].predict_proba(X)
             
             span = self.models[self.current_model+1]['n_frame'] - self.models[self.current_model]['n_frame']
-            tmp = self.index - self.models[self.current_model+1]['n_frame']
+            tmp = self.index - self.models[self.current_model]['n_frame']
             
             probs = np.average([probs_curr_model, probs_future_model], axis=0, weights=[1-(tmp/span), tmp/span])  #weighted average
-            if False and self.config["params"]["novelty_detection"]:
+            if self.config["params"]["novelty_detection"]:
                 X_pca = self.novelty_det[self.current_model+1]["model"].transform(X)
                 X_inv = self.novelty_det[self.current_model+1]["model"].inverse_transform(X_pca)
                 error_future_model = np.sum(np.sqrt(np.power(X - X_inv, 2)), axis=1)
-                sa_future_model = error.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()                
+                sa_future_model = error_future_model.reshape(crop_frame.shape[0], crop_frame.shape[1]).copy()                
                 sa = np.average([sa, sa_future_model], axis=0, weights=[1-(tmp/span), tmp/span])
         else:
             probs = probs_curr_model
@@ -154,8 +154,7 @@ class SemiSupervisedNonRigidMasker(Masker):
         if self.debug:
             cv.imshow("Prob. map superpixels", cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((7,7),np.uint8), iterations = 1))
             #prob_map = (probs[:, 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
-            #cv.imshow("Salicency map", cv.morphologyEx(prob_map, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))))
-
+            #cv.imshow("Salicency map", prob_map)
         return None
 
     
@@ -165,11 +164,14 @@ class SemiSupervisedNonRigidMasker(Masker):
         Add a prior to superpixels where such matches take place.
         """
         priors = np.full(labels.shape, fill_value=-1,  dtype=np.float32) 
-        if self.index == 0:
+        if self.index == 0 or self.config["params"]["prior_weight"] == 0.0:
             return priors
           
         kp1, des1 = self.sift.detectAndCompute(self.prevFrame, self.prevForegroundMask)
-        kp2, des2 = self.sift.detectAndCompute(crop_frame,None)        
+        kp2, des2 = self.sift.detectAndCompute(crop_frame,None)   
+
+        if len(kp1) == 0 or len(kp2) == 0:
+            return priors     
         
         matches = self.flann.knnMatch(des1, des2, k=2)
 
@@ -179,19 +181,26 @@ class SemiSupervisedNonRigidMasker(Masker):
             if m.distance < 0.7*n.distance:
                 goodMatches.append(m)
 
+        if len(goodMatches) == 0:
+            print("SASA")
+            return priors
+
         #filter out possible outliers based on the distance of matched points
         dist = np.array([((kp2[m.trainIdx].pt[0]-kp1[m.queryIdx].pt[0]) ** 2 + (kp2[m.trainIdx].pt[1]-kp1[m.queryIdx].pt[1]) ** 2)**0.5 for m in goodMatches])
         thrs = np.percentile(dist, 90)
         goodMatches = np.array(goodMatches)[dist <= thrs]
+        tmp2 = np.zeros(crop_frame.shape[:2], dtype=np.uint8) 
 
         for m in goodMatches:
             label = segments[int(kp2[m.trainIdx].pt[1]), int(kp2[m.trainIdx].pt[0])]
             priors[label] = 1
-            #idxs = np.nonzero(segments == label_curr_frame)
-            #tmp2[idxs] += 50             
-            #cv.imshow("tmp2", tmp2)
+            idxs = np.nonzero(segments == label)
+            tmp2[idxs] += 255
+        cv.imshow("Prior", tmp2)
+        plt.imshow(mark_boundaries(cv.cvtColor(crop_frame, cv.COLOR_BGR2RGB), segments))
+        plt.show()
         #img3 = cv.drawMatchesKnn(self.prevFrame, kp1, crop_frame, kp2, [[m] for m in goodMatches], None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        #plt.imshow(img3,),plt.show()
+        #cv.imshow("Feature match", img3)
         return priors
 
 
