@@ -3,7 +3,6 @@ import numpy as np
 import yaml
 import scipy as sp
 from scipy import signal
-from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import time, sys
 import colorutils
@@ -472,15 +471,6 @@ if DEBUG:
     print(f'\nTotal benchmark score: {np.mean(benchmarkDist)}')
     print(f'Total time consumed for tracking: {(end - start):.2f}s')
     
-    # Show outlier scores
-    if hasattr(maskers[0], 'scores'):
-        plt.plot(maskers[0].scores)
-        plt.xlabel("Number of Frame")
-        plt.ylabel("Score")
-        plt.title("Outlier score distribution")
-        plt.tight_layout()
-        plt.show()
-
     # Show benchmark
     plt.plot(benchmarkDist)
     plt.xlabel("Number of Frame")
@@ -489,8 +479,6 @@ if DEBUG:
     plt.tight_layout()
     plt.show()
 
-#plt.hist([m.distances for m in maskers], bins=np.unique([m.distances for m in maskers]).size)
-# plt.show()
 
 if DEBUG:
     #    _____          _   _____                             _

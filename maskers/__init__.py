@@ -7,7 +7,6 @@ from .rigid_masker import RigidMasker
 from .bg_subtractor_masker import BackgroundSubtractorMasker
 from .semi_supervised_masker import SemiSupervisedNonRigidMasker
 from .lin_pun_tracker import LinPauNonRigidTracker 
-from .semi_supervised_tracker import SemiSupervisedTracker 
 from .grab_cut import GrabCut
 
 def getMaskerByName(name, **args):
@@ -21,8 +20,6 @@ def getMaskerByName(name, **args):
         return BackgroundSubtractorMasker(**args)
     if name == "SemiSupervised":
         return SemiSupervisedNonRigidMasker(**args)
-    if name == "SemiSupervisedTracker":
-        return SemiSupervisedTracker(**args)
     if name == "LinPuntracker":
         return LinPauNonRigidTracker(**args)
     if name == "GrabCut":
