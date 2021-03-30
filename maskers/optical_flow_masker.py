@@ -57,7 +57,7 @@ class OpticalFlowMasker(Masker):
         r = max(bbox[2], bbox[3]) * 0.2
         box2 = np.array([bbox[0] - r, bbox[1] - r, bbox[2] + 2*r, bbox[3] + 2*r], dtype=np.int)
         bmask = np.zeros(frame.shape[:2], dtype=np.uint8)
-        bboxseg = skiseg.slic(frame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])], n_segments=100, compactness=10, sigma=1, start_label=0) + 1 # S.t. id=0 is the background
+        bboxseg = skiseg.slic(frame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])], n_segments=75, compactness=10, sigma=1, start_label=0) + 1 # S.t. id=0 is the background
         
         cv.imshow('superpixels', skiseg.mark_boundaries(frame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])], bboxseg))
         
@@ -85,9 +85,9 @@ class OpticalFlowMasker(Masker):
         # Draw new tracked points
         mask[:,:,2] = bmask
         
-        for point in self.featurePoints:
-            x, y = point.ravel()
-            cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
+        #for point in self.featurePoints:
+        #    x, y = point.ravel()
+        #    cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
         
 
         # Update previous values

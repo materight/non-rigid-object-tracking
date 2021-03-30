@@ -16,12 +16,12 @@ class GrabCut(Masker):
         grayFrame = cv.cvtColor(self.prevFrame, cv.COLOR_BGR2GRAY)
         featureMask = np.zeros_like(grayFrame)
         cv.fillPoly(featureMask, np.array([poly_roi], dtype=np.int32), 255)
-        self.maskSize = np.count_nonzero(featureMask) # Set mask size threshold for reinitialization
+        #self.maskSize = np.count_nonzero(featureMask) # Set mask size threshold for reinitialization
 
         # Extract feature points
         self.fgptsPrev, self.fgdesPrev = self.computeFeatures(grayFrame, featureMask)
         featureMask = np.where(featureMask == 0, 255, 0).astype(np.uint8) # Invert mask to compute background features
-        featureMask = cv.erode(featureMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (32, 32)), iterations = 1) # Apply erosion to avoid selecting features on the poly edges
+        featureMask = cv.erode(featureMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (16, 16)), iterations = 1) # Apply erosion to avoid selecting features on the poly edges
         self.bgptsPrev, self.bgdesPrev = self.computeFeatures(grayFrame, featureMask)
 
         # Print extracted points
@@ -47,7 +47,7 @@ class GrabCut(Masker):
         nextFrame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
         # Every 10 frames recompute the tracked features
-        if self.index % 10 == 0:
+        if self.index % 5 == 0:
             featureMask = cv.dilate(self.prevMask, kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5)))
             self.fgptsPrev, self.fgdesPrev = self.computeFeatures(prevFrame, featureMask)
             featureMask = np.where(featureMask == 0, 255, 0).astype(np.uint8) # Invert mask to compute background features
@@ -87,7 +87,7 @@ class GrabCut(Masker):
 
         # Initialize GraphCut mask with values obtained from foreground and background mask
         gcmask = np.full(frame.shape[:2], cv.GC_BGD, dtype=np.uint8)
-        gcmask[int(bbox[1]):int(bbox[1]+bbox[3]), int(bbox[0]):int(bbox[0]+bbox[2])] = cv.GC_PR_BGD
+        gcmask[int(bbox[1]):int(bbox[1]+bbox[3]), int(bbox[0]):int(bbox[0]+bbox[2])] = cv.GC_PR_FGD
         gcmask[tuple(self.bgptsPrev.T)] =  cv.GC_BGD # cv.GC_BGD
         gcmask[tuple(self.fgptsPrev.T)] =  cv.GC_FGD # cv.GC_FGD
 
@@ -103,6 +103,9 @@ class GrabCut(Masker):
         bmask = cv.morphologyEx(bmask, cv.MORPH_OPEN, kernel)
         bmask = cv.morphologyEx(bmask, cv.MORPH_CLOSE, kernel)
         bmask = cv.morphologyEx(bmask, cv.MORPH_DILATE, kernel)
+
+        if self.index == 1:
+            self.maskSize = np.count_nonzero(bmask) # Set mask size threshold for reinitialization
 
         self.prevMask = bmask.copy()
 
