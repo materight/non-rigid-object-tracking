@@ -4,7 +4,7 @@ import yaml
 import scipy as sp
 from scipy import signal
 import matplotlib.pyplot as plt
-import time, sys
+import time, sys, os
 import colorutils
 from maskers import getMaskerByName
 from benchmark import computeBenchmark
@@ -109,6 +109,10 @@ color_names_used = set()
 bboxes , bboxes_roni = [] , []
 poly_roi = []
 colors = []
+
+# Create mising folder
+if os.path.exists('output'):  
+    os.makedirs('output')
 
 # Set output video
 if DEBUG:

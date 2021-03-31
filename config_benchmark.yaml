@@ -1,3 +1,6 @@
+# Parameters used by benchmark.py
+# See 'config.yaml' for more details on the meaning of each param
+
 tracker: CSRT
 tau: 0.3
 resize_factor: 1
@@ -16,9 +19,9 @@ out_tracking_results: output/Tracking/results.png
 input_image_homography: sources/Map/basket_field.jpg
 
 masker: SemiSupervised
-custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
+custom_trackers: [SemiSupervisedTracker, LinPuntracker] 
 update_mask: False
 
 manual_roi_selection: False
 multi_selection: True
-re_init_span: 3 #define new ROI/RONI every tot_duration_clip/re_init_span, first selection excluded
+re_init_span: 3
