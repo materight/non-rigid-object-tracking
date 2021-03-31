@@ -12,7 +12,7 @@ out_mask: output/mask.avi # Where to save the resulting mask (the mask is shown 
 input_video: Input/SegTrack2/Video/soldier.mp4 # Input video
 input_truth: Input/SegTrack2/Truth/soldier.mp4 # Binary truth mask of the correct segmentation
 
-masker: GrabCut # Masker id
+masker: PC # Masker id
 custom_trackers: [LinPuntracker] # Trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
 
@@ -22,11 +22,11 @@ re_init_span: 3  # Define new ROI/RONI every tot_duration_clip/re_init_span, fir
 
 # Hyperparameters used by the masker. Currently supprted only by the SupervisedLearning masker
 params:
-  n_estimators: 30
-  max_depth: 7
+  n_estimators: 20
+  max_depth: 5
   n_components: 1
-  novelty_detection: True
-  over_segmentation: felzenszwalb
+  novelty_detection: False
+  over_segmentation: quickshift
   features: "8 hsv_lab"
   dilation_kernel: 7
   prior_weight: 0.0
