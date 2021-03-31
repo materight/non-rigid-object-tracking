@@ -8,10 +8,6 @@ show_novelty_detection: False
 show_masks: False
 debug: False
 
-out_tracked: output/tracked.avi 
-out_binary_mask: output/binary_mask.avi 
-out_mask: output/mask.avi
-
 masker: SemiSupervised
 custom_trackers: [SemiSupervisedTracker, LinPuntracker] 
 update_mask: False
