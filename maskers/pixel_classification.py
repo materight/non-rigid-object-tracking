@@ -21,7 +21,7 @@ warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 
-class SemiSupervisedNonRigidMasker(Masker):
+class PixelClassificationNonRigidMasker(Masker):
     def __init__(self, poly_roi=None, update_mask=None, **args):
         Masker.__init__(self, **args)
 

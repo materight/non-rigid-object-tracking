@@ -270,7 +270,6 @@ if DEBUG:
     # Save and visualize the chosen bounding box and its point used for homography
     cv.putText(smallFrame, 'PRESS SPACE TO START', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
     cv.namedWindow('Tracking')
-    #cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
     cv.imshow('Tracking', smallFrame)
     cv.waitKey(0)
 
