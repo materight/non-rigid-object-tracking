@@ -363,7 +363,7 @@ while 1:
         if DEBUG:
             out.write(smallFrame)  # Save video frame by frame
             out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
-            out_mask_binary.write(maskedFrame)
+            out_mask_binary.write(cv.cvtColor(maskedFrame[:,:,2], cv.COLOR_GRAY2BGR))
 
             if cv.waitKey(1) & 0xFF == ord('q'):
                 break
