@@ -110,9 +110,11 @@ bboxes , bboxes_roni = [] , []
 poly_roi = []
 colors = []
 
-# Create mising folder
-if os.path.exists('output'):  
-    os.makedirs('output')
+# Create output folder if mising
+for out_file in [loadeddict.get('out_tracked'), loadeddict.get('out_mask'), loadeddict.get('out_binary_mask')]:
+    out_dir = os.path.dirname(out_file)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
 # Set output video
 if DEBUG:
