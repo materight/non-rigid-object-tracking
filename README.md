@@ -1,11 +1,7 @@
-TODO:
-- Comments on config.yaml
-- Comments on polygons.yaml
-
 # Non-rigid Multi-object Tracking
-Azzolin Steve, Destro Matteo \
-Signal, Image and Video \
-Year 2020/21
+**Azzolin Steve, Destro Matteo** \
+**Signal, Image and Video** \
+**Year 2020/21**
 
 
 ## Get started
@@ -43,7 +39,7 @@ The folder `masker` contains separate classes for each algorithm proposal. The a
 ### Input/Output
 The videos used for testing the algorithms are available in the `Input` folder. These videos were taken from the [Seg Track V2](https://web.engr.oregonstate.edu/~lif/SegTrack2/dataset.html) public dataset.
 
-After running the algorithm, the resulting mask can be found inside `output` (or in the custom folder specified in config.yaml).
+After running the algorithm, the resulting mask can be found inside `output` (or in the custom folder specified in `config.yaml`).
 
 ### Benchmark
 `benchmark.py` is a utility script to easily test different parameters combination automatically. It is useful in particular with the *SemiSupervised* tracker which has many hyper-parameters.

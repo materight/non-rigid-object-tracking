@@ -3,7 +3,7 @@ resize_factor: 1 # Resize factor (betwwen 0 and 1) to use on the video input. Wi
 
 show_novelty_detection: False # If True show the novelty detection results
 show_masks: True # If True shows the resulting binary mask as the algorithm computes it
-debug: True # If True show debug mesages 
+debug: True # If True show debug mesages and export resulting masks. Should always be True, is set to False only when running benchmark.py
 
 out_tracked: output/tracked.avi # Where to save the resulting video with tracking information
 out_binary_mask: output/binary_mask.avi # Where to save the resulting binary mask
