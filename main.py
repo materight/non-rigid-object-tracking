@@ -275,7 +275,7 @@ if DEBUG:
     cv.waitKey(0)
 
 if DEBUG and loadeddict.get('show_masks'):
-    cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
+    cv.namedWindow('Tracking-Masks')
     cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
 benchmarkDist = []

@@ -119,6 +119,7 @@ class SemiSupervisedNonRigidMasker(Masker):
             print("\n \n CHANGE OF MODEL \n \n")
             return self.current_model #to flag the re-initialization also of the tracker
         if self.debug:
+            pass
             #cv.imshow("Prob. map superpixels", cv.dilate(mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2], 2], np.ones((7,7),np.uint8), iterations = 1))
             #prob_map = (probs[:, 1].reshape(crop_frame.shape[:2])*255).astype(np.uint8)
             #cv.imshow("Salicency map", prob_map)
