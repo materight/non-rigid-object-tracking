@@ -1,25 +1,19 @@
 tracker: CSRT
-tau: 0.3
 resize_factor: 1
 
 show_novelty_detection: True
 show_masks: False
-show_homography: False
 debug: True
 
-out_players: output/Tracking/tracked_players.avi
-out_players_mask: output/Tracking/tracked_players_mask.avi
-out_homography: output/Tracking/tracked_homography.avi
-out_bboxes: output/Tracking/bounding_box.png
-out_players_data: output/Tracking/data_players.txt
-out_tracking_results: output/Tracking/results.png
+out_tracked: output/tracked.avi
+out_binary_mask: output/binary_mask.avi
+out_mask: output/mask.avi
 
-input_video: output/Video/SegTrack2/Video/soldier.mp4
-input_truth: output/Video/SegTrack2/Truth/soldier.mp4 # Can be null
-input_image_homography: sources/Map/basket_field.jpg
+input_video: Input/SegTrack2/Video/soldier.mp4
+input_truth: Input/SegTrack2/Truth/soldier.mp4 # Can be null
 
-masker: SemiSupervised
-custom_trackers: [SemiSupervisedTracker, LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
+masker: LinPuntracker
+custom_trackers: [LinPuntracker] #trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
 
 manual_roi_selection: False
@@ -31,14 +25,15 @@ params:
   max_depth: 7
   n_components: 1
   novelty_detection: True
-  over_segmentation: quickshift
+  over_segmentation: felzenszwalb
   features: "8 hsv_lab"
   dilation_kernel: 7
   prior_weight: 0.0
 
-#
-# Examples of configuration for benchmark videos
-#
+##
+## Examples of configuration for benchmark videos
+##
+
 #Configuration for bird_of_paradise
 #pts: [[[[328, 69], [338, 80], [347, 99], [348, 117], [333, 147], [333, 169], [343, 189], [362, 203], [387, 206], [412, 216], [427, 226], [453, 224], [474, 227], [493, 232], [513, 243], [497, 254], [477, 254], [453, 254], [430, 255], [448, 269], [414, 269], [386, 271], [372, 274], [361, 285], [346, 300], [358, 306], [368, 313], [354, 317], [339, 316], [313, 318], [297, 313], [306, 310], [319, 306], [332, 306], [348, 290], [348, 277], [342, 278], [323, 279], [309, 277], [295, 272], [278, 267], [274, 282], [262, 301], [257, 308], [253, 304], [235, 316], [240, 296], [249, 282], [239, 280], [230, 285], [239, 255], [242, 239], [246, 220], [256, 205], [267, 183], [275, 164], [274, 153], [283, 155], [294, 145], [297, 127], [304, 109], [310, 95], [318, 78]], [[270, 128], [293, 128], [320, 127], [340, 128], [366, 134], [386, 142], [406, 150], [437, 167], [460, 184], [475, 213], [481, 246], [470, 270], [451, 283], [420, 291], [392, 293], [354, 293], [335, 293], [338, 302], [326, 303], [324, 292], [312, 296], [285, 298], [267, 293], [267, 305], [253, 315], [258, 291], [239, 296], [202, 298], [165, 295], [133, 292], [120, 279], [111, 268], [105, 253], [109, 231], [119, 205], [136, 188], [153, 170], [175, 160], [194, 151], [210, 144], [225, 139], [241, 136], [261, 133]], [[235, 101], [249, 100], [275, 100], [298, 100], [321, 102], [347, 107], [367, 114], [390, 122], [410, 134], [430, 150], [455, 174], [471, 200], [480, 228], [477, 259], [459, 279], [438, 288], [410, 289], [371, 281], [352, 277], [346, 300], [334, 302], [344, 292], [346, 278], [340, 274], [324, 272], [311, 271], [302, 271], [293, 275], [284, 297], [269, 302], [285, 283], [291, 270], [284, 265], [269, 261], [253, 259], [237, 257], [217, 255], [200, 253], [188, 249], [169, 248], [153, 246], [136, 237], [121, 225], [117, 198], [120, 175], [131, 160], [140, 147], [151, 139], [164, 130], [183, 122], [199, 114], [220, 106]], [[336, 63], [352, 62], [354, 83], [349, 104], [337, 127], [332, 142], [335, 156], [347, 176], [369, 187], [390, 194], [414, 202], [432, 210], [461, 210], [481, 214], [505, 220], [502, 234], [495, 242], [474, 240], [453, 235], [424, 228], [432, 241], [446, 253], [440, 258], [423, 258], [388, 258], [368, 258], [362, 267], [354, 285], [343, 298], [361, 305], [361, 313], [309, 318], [312, 306], [333, 303], [343, 289], [351, 275], [339, 257], [321, 261], [299, 257], [287, 250], [276, 247], [256, 287], [248, 287], [234, 299], [244, 262], [231, 267], [239, 242], [246, 216], [255, 201], [267, 187], [271, 171], [276, 156], [271, 143], [267, 132], [285, 141], [297, 148], [307, 133], [315, 109], [324, 84], [330, 73]]]]
 #pts_frame_numbers: [0, 32, 64, 96]

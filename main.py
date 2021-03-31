@@ -6,7 +6,6 @@ from scipy import signal
 import matplotlib.pyplot as plt
 import time, sys
 import colorutils
-from kalman_filter import KalmanFilter
 from maskers import getMaskerByName
 from benchmark import computeBenchmark
 
@@ -91,45 +90,33 @@ with open(CONFIG_FILE) as f:
     loadeddict = yaml.full_load(f)
     TRACKER = loadeddict.get('tracker')
     MASKER = loadeddict.get('masker')
-    TAU = loadeddict.get('tau')
     RESIZE_FACTOR = loadeddict.get('resize_factor')
     DEBUG = loadeddict.get('debug')
     MANUAL_ROI_SELECTION = loadeddict.get('manual_roi_selection')
 
 WINDOW_HEIGHT = 700
 
-# Read homography matrix
-with open('configs/homography_19points.yaml') as f:
-    dict_homo = yaml.full_load(f)
-    h = np.array(dict_homo.get('homography'))
-
-img = cv.imread(loadeddict.get('input_image_homography'))
-
-
 # Set input video
 cap = cv.VideoCapture(loadeddict.get('input_video'))
 ratio = cap.get(cv.CAP_PROP_FRAME_WIDTH) / cap.get(cv.CAP_PROP_FRAME_HEIGHT)
 WINDOW_WIDTH = int(WINDOW_HEIGHT * ratio)
-fps = cap.get(cv.CAP_PROP_FPS)
 if not cap.isOpened():
     exit("Input video not opened correctly")
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
-first_frame = smallFrame.copy()
-kalman_filters, kalman_filtersp1, kalman_filtersp2 = [], [], []
 maskers = []
 color_names_used = set()
 bboxes , bboxes_roni = [] , []
 poly_roi = []
 colors = []
-histo = []
 
 # Set output video
 if DEBUG:
+    fps = cap.get(cv.CAP_PROP_FPS)
     fourcc = cv.VideoWriter_fourcc(*'DIVX')
-    out = cv.VideoWriter(loadeddict.get('out_players'), fourcc, fps, smallFrame.shape[1::-1])
-    out_mask = cv.VideoWriter(loadeddict.get('out_players_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
-    points = cv.VideoWriter(loadeddict.get('out_homography'), fourcc, fps, img.shape[1::-1])
+    out = cv.VideoWriter(loadeddict.get('out_tracked'), fourcc, fps, smallFrame.shape[1::-1])
+    out_mask = cv.VideoWriter(loadeddict.get('out_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
+    out_mask_binary = cv.VideoWriter(loadeddict.get('out_binary_mask'), fourcc, fps/3, smallFrame.shape[1::-1])
 
 
 #    __  __          _____ _   _
@@ -160,10 +147,6 @@ if not MANUAL_ROI_SELECTION:
                     continue
                 bbox = cv.boundingRect(np.array(frame_selection))
                 bboxes[-1].append(bbox)
-
-                crop_img = smallFrame[int(bbox[1]):int(bbox[1] + bbox[3]), int(bbox[0]):int(bbox[0] + bbox[2])]
-                hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-                histo.append(hist_1)
                 
                 colors.append(colorutils.pickNewColor(color_names_used))
                 
@@ -231,8 +214,6 @@ else:
                     else:
                         bboxes[n_target].append(bbox)
                         colors.append(colorutils.pickNewColor(color_names_used))
-                        hist_1, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-                        histo.append(hist_1)
                         bbox_roni = maskers[n_target].addModel(frame=smallFrame, poly_roi=poly_roi[n_target][-1], bbox=bbox, n_frame=k)
                         bboxes_roni[n_target].append(bbox_roni)
                         bbox = None
@@ -275,37 +256,13 @@ if not ok: exit("Fatal error!")
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
 
 multiTracker = cv.legacy.MultiTracker_create()
-
-# List for saving points of tracking in the basketball diagram (homography)
-x_sequence_image, y_sequence_image = [], []
-x_sequences, y_sequences = [], []
 for n_target in range(len(bboxes)):
-    bbox = bboxes[n_target][0]
+    bbox = bboxes[n_target][0] #init the tracker with the first selection of each target
     multiTracker.add(createTracker(TRACKER), smallFrame, bbox)
-    x_sequences.append([])
-    y_sequences.append([])
-
-    kalman_filters.append(KalmanFilter())
-    kalman_filtersp1.append(KalmanFilter())
-    kalman_filtersp2.append(KalmanFilter())
-
-    tracking_point = (int(bbox[0] + bbox[2] / 2), int(bbox[1] + bbox[3]))
-    cv.circle(smallFrame, tracking_point, 4, (255, 200, 0), -1)
-    cv.rectangle(smallFrame, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), (255, 0, 0), 2)
-    # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
-    vector = np.dot(h, np.transpose([tracking_point[0], tracking_point[1], 1]))
-    # Evaluation of the vector
-    tracking_point_img = (vector[0], vector[1])
-    w = vector[2]
-    tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
-    x_sequences[n_target].append(tracking_point_new[0])
-    y_sequences[n_target].append(tracking_point_new[1])
-    cv.circle(img, tracking_point_new, 4, colors[n_target], -1)
 
 if DEBUG:
     # Save and visualize the chosen bounding box and its point used for homography
-    cv.imwrite(loadeddict.get('out_bboxes'), smallFrame)
-    cv.putText(smallFrame, 'Selected Bounding Boxes. PRESS SPACE TO CONTINUE...', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+    cv.putText(smallFrame, 'PRESS SPACE TO START', (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
     cv.namedWindow('Tracking')
     #cv.resizeWindow('Tracking', WINDOW_WIDTH,  WINDOW_HEIGHT)
     cv.imshow('Tracking', smallFrame)
@@ -314,9 +271,6 @@ if DEBUG:
 if DEBUG and loadeddict.get('show_masks'):
     cv.namedWindow('Tracking-Masks', cv.WINDOW_NORMAL)
     cv.resizeWindow('Tracking-Masks', WINDOW_WIDTH,  WINDOW_HEIGHT)
-if DEBUG and loadeddict.get('show_homography'):
-    cv.namedWindow('Tracking-Homography', cv.WINDOW_NORMAL)
-    cv.resizeWindow('Tracking-Homography', WINDOW_WIDTH,  WINDOW_HEIGHT)
 
 benchmarkDist = []
 start = time.time()
@@ -324,12 +278,9 @@ index = 0
 cap = cv.VideoCapture(loadeddict.get('input_video'))  # added by Steve to feed the first frame at the first iteration
 cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('input_truth') is not None else None
 truth = None
-while (1):
-    index += 1
-    # if index % 2 == 0: continue
-    if 1: # index > 50:
-        ok, frame = cap.read()
-        _, truth = cap_truth.read() if cap_truth is not None else (None, None)
+while 1:
+    ok, frame = cap.read()
+    _, truth = cap_truth.read() if cap_truth is not None else (None, None)
     if ok:
         smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
         truthFrame = cv.cvtColor(cv.resize(truth, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR), cv.COLOR_BGR2GRAY) if truth is not None else None
@@ -343,47 +294,10 @@ while (1):
         for i, newbox in enumerate(boxes):
             p1_t = (int(newbox[0]), int(newbox[1]))
             p2_t = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
-
-            # Computation of the new position of the tracking point
-            tracking_point = (int(newbox[0] + newbox[2] / 2), int(newbox[1] + newbox[3]))
-            predictedCoords = kalman_filters[i].estimate(tracking_point[0], tracking_point[1])
-            p1_k = kalman_filtersp1[i].estimate(p1_t[0], p1_t[1])
-            p2_k = kalman_filtersp2[i].estimate(p2_t[0], p2_t[1])
-            # Compute the point in the homographed space: destination point(image)=homography matrix*source point(video)
-            vector = np.dot(h, np.transpose([predictedCoords[0][0], predictedCoords[1][0], 1]))
-
-            tracking_point_img = (vector[0], vector[1])
-            w = vector[2]
-            tracking_point_new = (int(tracking_point_img[0] / w), int(tracking_point_img[1] / w))
-            # Add new position to list of points for the homographed space
-            x_sequences[i].append(tracking_point_new[0])
-            y_sequences[i].append(tracking_point_new[1])
-            # computation of the predicted bounding box
-            point1_k = (int(p1_k[0]), int(p1_k[1]))
-            point2_k = (int(p2_k[0]), int(p2_k[1]))
             point1_t = (int(p1_t[0]), int(p1_t[1]))
             point2_t = (int(p2_t[0]), int(p2_t[1]))
 
-            bbox_new = (int(point1_k[0]), int(point1_k[1]), int(point2_k[0] - point1_k[0]), int(point2_k[1] - point1_k[1]))
             bbox_new_t = (int(point1_t[0]), int(point1_t[1]), int(point2_t[0] - point1_t[0]), int(point2_t[1] - point1_t[1]))
-
-            # RE-INITIALIZATION START
-            crop_img = smallFrame[bbox_new[1]:bbox_new[1] + bbox_new[3], bbox_new[0]:bbox_new[0] + bbox_new[2]]
-            hist_2, _ = np.histogram(crop_img, bins=256, range=[0, 255])
-            with np.errstate(divide='ignore', invalid='ignore'):
-                intersection = returnIntersection(histo[i], hist_2)
-            if intersection < 0:
-                print('RE-INITIALIZE TRACKER CSRT n° %d' % i)
-                colors[i] = colorutils.pickNewColor(color_names_used)
-                multiTracker = cv.legacy.MultiTracker_create()
-                for n, nb in enumerate(boxes):
-                    boxi = (nb[0], nb[1], nb[2], nb[3])
-                    if n == i:
-                        multiTracker.add(createTracker(TRACKER), smallFrame, bbox_new)
-                    else:
-                        multiTracker.add(createTracker(TRACKER), smallFrame, boxi)
-                histo[i] = hist_2
-            # RE-INITIALIZATION END
 
             if loadeddict.get('masker') not in loadeddict.get('custom_trackers'):
                 originalFrame = smallFrame.copy()
@@ -434,19 +348,16 @@ while (1):
                 # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-                cv.putText(smallFrame, '{:.2f}'.format(intersection), (point1_k[0], point1_k[1]-7), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                points.write(img)  # Save video for position tracking on the basketball diagram
 
                 # Show results
                 cv.imshow('Tracking', smallFrame)
                 if loadeddict.get('show_masks'):
                     cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
-                if loadeddict.get('show_homography'):
-                    cv.imshow('Tracking-Homography', img)
 
         if DEBUG:
             out.write(smallFrame)  # Save video frame by frame
             out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
+            out_mask_binary.write(maskedFrame)
 
             if cv.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -464,7 +375,7 @@ if BENCHMARK_OUT is not None:
 if DEBUG:
     out.release()
     out_mask.release()
-    points.release()
+    out_mask_binary.release()
 cv.destroyAllWindows()
 
 if DEBUG:
@@ -474,117 +385,7 @@ if DEBUG:
     # Show benchmark
     plt.plot(benchmarkDist)
     plt.xlabel("Number of Frame")
-    plt.ylabel("Error of Center")
+    plt.ylabel("IoU")
     plt.title("Avg. error = {}".format(int(np.mean(benchmarkDist))))
     plt.tight_layout()
     plt.show()
-
-
-if DEBUG:
-    #    _____          _   _____                             _
-    #   |  __ \        | | |  __ \                           (_)
-    #   | |__) |__  ___| |_| |__) | __ ___   ___ ___  ___ ___ _ _ __   __ _
-    #   |  ___/ _ \/ __| __|  ___/ '__/ _ \ / __/ _ \/ __/ __| | '_ \ / _` |
-    #   | |  | (_) \__ \ |_| |   | | | (_) | (_|  __/\__ \__ \ | | | | (_| |
-    #   |_|   \___/|___/\__|_|   |_|  \___/ \___\___||___/___/_|_| |_|\__, |
-    #                                                                  __/ |
-    #                                                                 |___/
-    # (Montibeller project)
-
-    # 1) Apply a median filter to the two sequence of x, y coordinates in order to achieve a smoother trajectory
-    x_sequence_image = sp.signal.medfilt(x_sequence_image, 25)  # Window width of the filter MUST be ODD
-    y_sequence_image = sp.signal.medfilt(y_sequence_image, 25)
-    position_x = []
-    position_y = []
-    for i, bbox in enumerate(bboxes):
-        x_sequences[i] = sp.signal.medfilt(x_sequences[i], 25)
-        y_sequences[i] = sp.signal.medfilt(y_sequences[i], 25)
-        # Draw the trajectory on the basketball diagram
-        pts = np.column_stack((x_sequences[i], y_sequences[i]))
-        pts = np.array(pts, np.int32)
-        pts = pts.reshape((-1, 1, 2))
-        cv.polylines(img, [pts], False, colors[i], 2)
-        position_x.append([])
-        position_y.append([])
-
-    # Show the result
-    if loadeddict.get('show_homography'):
-        cv.imshow('Smoothing', img)
-        cv.waitKey(0)
-        cv.destroyWindow('Smoothing')
-
-    # Evaluation of the shift, acceleration and the average speed of the players in real world coordinates
-    # Step 1: Compute the position of the smoothed vector of position in real world coordinates
-    # Step 2: Evaluate the length of the trajectory using an Euclidian distance between 2 successive points and sum them together
-    #         and compute the acceleration values
-    # Step 3: Compute the velocity and the total length of the trajectory
-
-    # Step 1
-    flag = 0
-    index = 0
-    for bbox in bboxes:
-        x_sequence_image = x_sequences[index]
-        y_sequence_image = y_sequences[index]
-        for i in range(0, len(x_sequence_image) - 1):
-            # x coordinate
-            length = x_sequence_image[i] - 38
-            proportion = length / 1008.0
-            position_x[index].append(28 * proportion)
-            # y coordinate
-            length = y_sequence_image[i] - 28
-            proportion = length / 545.0
-            position_y[index].append(15 * proportion)
-        index += 1
-    # Step 2
-    shift = 0
-    index = 0
-    px, py = [], []
-    f = open(loadeddict.get('out_players_data'), 'w+')
-    f.write('TIME CONSUMED FOR TRACKING: %f\r\n' % (end - start))
-    for bbox in bboxes:
-        px = position_x[index]
-        py = position_y[index]
-        shift = 0
-        rgb = colors[index]
-        actual_name, closest_name = colorutils.getColorName(rgb)
-        f.write('\n\n')
-        f.write('TRACKER COLOR %s\r\n' % closest_name)
-        f.write('ACCELERATION:\r\n')
-        iter_frame = 1
-        shift_prec, average_acceleration1 = None, None
-        for i in range(0, len(px) - 1):
-            # compute here the accelleration for space sample
-            shift = shift + np.sqrt((px[i + 1] - px[i]) ** 2 + (py[i + 1] - py[i]) ** 2)  # steve updated from math.sqrt to np.sqrt
-            if i == 50*iter_frame:
-                if iter_frame == 1:
-                    shift_prec = shift
-                    speed1 = shift_prec / 2
-                    average_acceleration1 = speed1 / 2
-                    f.write('Detection done in the first 2 seconds\r\n')
-                    f.write('route space:%f, time step 2 sec\r\n' % shift_prec)
-                    f.write('acceleration: %f\r\n' % average_acceleration1)
-                else:
-                    t1 = (((2 * fps) * iter_frame) - (2 * fps)) / fps
-                    t2 = ((2 * fps) * iter_frame) / fps
-                    speed2 = (shift - shift_prec) / 2
-                    average_acceleration2 = speed2 / 2 - average_acceleration1
-                    average_acceleration1 = average_acceleration2
-                    f.write('Detection done in the time sample %d - %d sec\r\n' % (t2, t1))
-                    f.write('route space:%f, time step 2 sec\r\n' % (shift - shift_prec))
-                    f.write('acceleration: %f\r\n' % average_acceleration2)
-                    shift_prec = shift
-
-                iter_frame += 1
-                f.write('\n')
-    # Step 3
-        # Print of the results
-        # Evaluation of the average speed: speed=space/time
-        average_speed = shift / (len(px)/fps)
-        f.write(f'trajectory length {shift:.2f}[m]\r\n\n')
-        f.write(f'average speed {average_speed:.2f}[m/s]\r\n\n')
-        cv.imwrite(loadeddict.get('out_tracking_results'), img)
-        cv.imshow('Result', img)
-        index += 1
-    cap.release()
-    cv.destroyAllWindows()
-    f.close()

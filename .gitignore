@@ -1,4 +1,9 @@
 output/*
+Input/clip3.mp4
+Input/clip4.mov
+Input/clip5.mov
+Input/clip6.mov
+Input/dino.mp4
 sources/*
 prim/lib/*
 tmp
