@@ -32,7 +32,7 @@ See the comments in `config.yaml` for more details and a description of the othe
 The folder `masker` contains separate classes for each algorithm proposal. The available maskers are:
 - **BgSub** (`bg_subtractor_masker.py`): background subtractor.
 - **LinPuntracker** (`lin_pun_tracker.py`): Lin-pun highly non-rigid object tracker. Please note that this algorithm was not thoroughly tested.
-- **OpticalFlow** (`optical_flow_masker.py`): Optical Flow and Convex Hull masker (OPCH).
+- **OpticalFlow** (`optical_flow_masker.py`): Optical Flow and Convex Hull masker (OFCH).
 - **PC** (`pixel_classification.py`): Pixel Classification (PC) masker.
 - **GrabCut** (`grab_cut.py`): GrabCut-based algorithm.
 
@@ -50,3 +50,27 @@ The benchmark uses `config_benchmark.yaml` as config file (see section [Configur
 
 
 The results are then saved into `benchmark_results.csv`, with the obtained benchmark and the processing time required for each video.
+
+## Results
+The following table show the results for the three best approaches proposed. The benchmark score was computed with the intersection over union (IoU) metric.
+
+| Sequence  | OFCH | PC   | GrabCut |
+| --------- | ---- | ---- | ------- |
+| Parachute | 0.60 | 0.77 |  0.79   |
+| Soldier   | 0.58 | 0.74 |  0.75   |
+| Worm      | 0.35 | 0.72 |  0.73   |
+| Frog      | 0.32 | 0.76 |  0.61   |
+
+
+\
+Below an example of the resulting mask for each algorithm:
+
+![Optical Flow and Convex Hull (OFCH)](img/OFCH_soldier.gif) \
+*OFCH tracker* 
+ 
+
+![Pixel Classification (PC)](img/PC_soldier.gif) \
+*PC tracker*
+
+![GrabCut](img/GrabCut_soldier.gif) \
+*GrabCut tracker*
