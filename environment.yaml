@@ -1,0 +1,20 @@
+name: non_rigid_tracking
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - imutils=0.5.4
+  - matplotlib=3.3.2
+  - numba=0.52.0
+  - numpy=1.20.0
+  - pandas=1.2.1
+  - pip=20.3.3
+  - scikit-image=0.17.2
+  - scikit-learn=0.24.1
+  - scipy=1.5.2
+  - tqdm=4.56.0
+  - webcolors=1.8.1
+  - yaml=0.2.5
+  - pip:
+    - opencv-contrib-python==4.5.1.48
+

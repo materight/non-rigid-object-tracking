@@ -1,8 +1,6 @@
 import cv2 as cv
 import numpy as np
 import yaml
-import scipy as sp
-from scipy import signal
 import matplotlib.pyplot as plt
 import time, sys, os
 import colorutils

@@ -5,9 +5,9 @@ show_novelty_detection: False # If True show the novelty detection results
 show_masks: True # If True shows the resulting binary mask as the algorithm computes it
 debug: True # If True show debug mesages and export resulting masks. Should always be True, is set to False only when running benchmark.py
 
-out_tracked: output/tracked.avi # Where to save the resulting video with tracking information
-out_binary_mask: output/binary_mask.avi # Where to save the resulting binary mask
-out_mask: output/mask.avi # Where to save the resulting mask (the mask is shown as a red overlay over the input video)
+out_tracked: Output/tracked.avi # Where to save the resulting video with tracking information
+out_binary_mask: Output/binary_mask.avi # Where to save the resulting binary mask
+out_mask: Output/mask.avi # Where to save the resulting mask (the mask is shown as a red overlay over the input video)
 
 input_video: Input/SegTrack2/Video/soldier.mp4 # Input video
 input_truth: Input/SegTrack2/Truth/soldier.mp4 # Binary truth mask of the correct segmentation

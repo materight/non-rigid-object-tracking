@@ -8,7 +8,7 @@
 
 ### Import the conda env
 - Run `conda env create -f environment.yaml`.
-- Run `conda activate name_of_the_environment`.
+- Run `conda activate non_rigid_tracking`.
 - **Note:** In case you want to run the Lin-pun tracker, you also need to compile some additional C libraries by running `cd prim && make`.
 
 ### Run sample
@@ -39,7 +39,7 @@ The folder `masker` contains separate classes for each algorithm proposal. The a
 ### Input/Output
 The videos used for testing the algorithms are available in the `Input` folder. These videos were taken from the [Seg Track V2](https://web.engr.oregonstate.edu/~lif/SegTrack2/dataset.html) public dataset.
 
-After running the algorithm, the resulting mask can be found inside `output` (or in the custom folder specified in `config.yaml`).
+After running the algorithm, the resulting mask can be found inside `Output` (or in the custom folder specified in `config.yaml`).
 
 ### Benchmark
 `benchmark.py` is a utility script to easily test different parameters combination automatically. It is useful in particular with the *SemiSupervised* tracker which has many hyper-parameters.

@@ -1,10 +1,7 @@
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from collections import defaultdict
 
-from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
