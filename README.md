@@ -73,4 +73,3 @@ Below an example of the resulting mask for each algorithm:
 *PC tracker*
 
 ![GrabCut](img/GrabCut_soldier.gif) \
-*GrabCut tracker*
