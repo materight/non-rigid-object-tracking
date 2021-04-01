@@ -65,12 +65,13 @@ The following table show the results for the three best approaches proposed. The
 \
 Below an example of the resulting mask for each algorithm:
 
-![Optical Flow and Convex Hull mask example](img/OFCH_soldier.gif) \
-*Optical Flow and Convex Hull (OFCH)* 
+*Optical Flow and Convex Hull (OFCH)*  \
+![Optical Flow and Convex Hull mask example](img/OFCH_soldier.gif)
+
  
+*Pixel Classification (PC)* \
+![Pixel Classification mask example](img/PC_soldier.gif)
 
-![Pixel Classification mask example](img/PC_soldier.gif) \
-*Pixel Classification (PC)*
-
+*GrabCut* \
 ![GrabCut mask example](img/GrabCut_soldier.gif)
-*GrabCut*
+
