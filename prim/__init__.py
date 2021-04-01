@@ -4,17 +4,14 @@ import numpy as np
 import cv2 as cv
 
 
-# Load the shared library into ctypes
-libname = str(pathlib.Path().absolute() / "prim" / "lib" / "libprim.so")
-lib = ctypes.CDLL(libname)
-rp_fun = lib.rp
-
-alpha = np.genfromtxt('configs/alpha.dat', delimiter=',')
-
-if not alpha.flags['C_CONTIGUOUS']:
-	alpha = np.ascontiguousarray(alpha)
-
 def RP(img, n_proposals, segment_mask=None):
+	# Load the shared library into ctypes
+	libname = str(pathlib.Path().absolute() / "prim" / "lib" / "libprim.so")
+	lib = ctypes.CDLL(libname)
+	rp_fun = lib.rp
+	alpha = np.genfromtxt('configs/alpha.dat', delimiter=',')
+	if not alpha.flags['C_CONTIGUOUS']: alpha = np.ascontiguousarray(alpha)
+	
 	# Preporcessing image
 	img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 	if not img.flags['C_CONTIGUOUS']: img = np.ascontiguousarray(img)

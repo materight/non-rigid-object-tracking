@@ -31,9 +31,9 @@ See the comments in `config.yaml` for more details and a description of the othe
 ### Maskers
 The folder `masker` contains separate classes for each algorithm proposal. The available maskers are:
 - **BgSub** (`bg_subtractor_masker.py`): background subtractor.
-- **LinPuntracker** (`lin_pun_tracker.py`): Lin-pun highly non-rigid object tracker.
+- **LinPuntracker** (`lin_pun_tracker.py`): Lin-pun highly non-rigid object tracker. Please note that this algorithm was not thoroughly tested.
 - **OpticalFlow** (`optical_flow_masker.py`): Optical Flow and Convex Hull masker (OPCH).
-- **SemiSupervised** (`semi_supervised_masker.py`): Pixel Classification (PC).
+- **PC** (`pixel_classification.py`): Pixel Classification (PC) masker.
 - **GrabCut** (`grab_cut.py`): GrabCut-based algorithm.
 
 ### Input/Output
