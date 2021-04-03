@@ -61,11 +61,6 @@ def drawPolyROI(event, x, y, flags, params):
             cv.line(img=img2, pt1=(pts[i][0], pts[i][1]), pt2=(pts[i+1][0], pts[i+1][1]), color=(255, 0, 0), thickness=1)
     cv.imshow('ROI', img2)
 
-def returnIntersection(hist_1, hist_2):
-    minima = np.minimum(hist_1, hist_2)
-    intersection = np.true_divide(np.sum(minima), np.sum(hist_2))
-    return intersection
-
 
 #    _____ _   _ _____ _______
 #   |_   _| \ | |_   _|__   __|
@@ -102,6 +97,7 @@ if not cap.isOpened():
     exit("Input video not opened correctly")
 ok, frame = cap.read()
 smallFrame = cv.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+
 maskers = []
 color_names_used = set()
 bboxes , bboxes_roni = [] , []
@@ -278,7 +274,7 @@ if DEBUG and loadeddict.get('show_masks'):
 benchmarkDist = []
 start = time.time()
 index = 0
-cap = cv.VideoCapture(loadeddict.get('input_video'))  # added by Steve to feed the first frame at the first iteration
+cap = cv.VideoCapture(loadeddict.get('input_video'))  # to feed the first clean frame at the first iteration
 cap_truth = cv.VideoCapture(loadeddict.get('input_truth')) if loadeddict.get('input_truth') is not None else None
 truth = None
 while 1:
@@ -299,7 +295,6 @@ while 1:
             p2_t = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
             point1_t = (int(p1_t[0]), int(p1_t[1]))
             point2_t = (int(p2_t[0]), int(p2_t[1]))
-
             bbox_new_t = (int(point1_t[0]), int(point1_t[1]), int(point2_t[0] - point1_t[0]), int(point2_t[1] - point1_t[1]))
 
             if loadeddict.get('masker') not in loadeddict.get('custom_trackers'):
@@ -348,7 +343,6 @@ while 1:
                 benchmarkDist.append(computeBenchmark(maskedFrame[:,:,2], truthFrame))
 
             if DEBUG:
-                # cv.rectangle(smallFrame, point1_k, point2_k, colors[i], 1, 1)
                 cv.rectangle(smallFrame, point1_t, point2_t, colors[i], 2, 1)
                 cv.putText(smallFrame, TRACKER + ' Tracker', (100, 20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
@@ -356,7 +350,6 @@ while 1:
                 cv.imshow('Tracking', smallFrame)
                 if loadeddict.get('show_masks'):
                     cv.imshow('Tracking-Masks', maskedFrame[:,:,2])
-
         if DEBUG:
             out.write(smallFrame)  # Save video frame by frame
             out_mask.write(cv.addWeighted(src1=smallFrame, alpha=0.6, src2=maskedFrame, beta=0.4, gamma=0))  # Save masked video
@@ -368,8 +361,7 @@ while 1:
         cv.putText(smallFrame, 'Tracking failure detected', (100, 80), cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
         break
 
-end = time.time()
-tot_time = end - start
+tot_time = time.time() - start
 
 if BENCHMARK_OUT is not None:
     with open(BENCHMARK_OUT, 'w') as f:
@@ -383,7 +375,7 @@ cv.destroyAllWindows()
 
 if DEBUG:
     print(f'\nTotal benchmark score: {np.mean(benchmarkDist)}')
-    print(f'Total time consumed for tracking: {(end - start):.2f}s')
+    print(f'Total time consumed for tracking: {(tot_time):.2f}s')
     
     # Show benchmark
     plt.plot(benchmarkDist)
