@@ -10,14 +10,14 @@ out_binary_mask: Output/binary_mask.avi # Where to save the resulting binary mas
 out_mask: Output/mask.avi # Where to save the resulting mask (the mask is shown as a red overlay over the input video)
 
 input_video: Input/SegTrack2/Video/soldier.mp4 # Input video
-input_truth: Input/SegTrack2/Truth/soldier.mp4 # Binary truth mask of the correct segmentation
+input_truth: Input/SegTrack2/Truth/soldier.mp4 # Binary truth mask of the correct segmentation. Can be null if not available
 
 masker: PC # Masker id
 custom_trackers: [LinPuntracker] # Trackers for which we haven't implemented a full compatible structure with OpenCV's trackers
 update_mask: False
 
 manual_roi_selection: False # Enable manual polygon (ROI) selection. If False, the polygons specified in the 'pts' parameters are used
-multi_selection: True # Enable the selection of multiple object to track
+multi_selection: True # Enable the selection of multiple frames to train the models. Used in PixelClassification algorithm
 re_init_span: 3  # Define new ROI/RONI every tot_duration_clip/re_init_span, first selection excluded
 
 # Hyperparameters used by the masker. Currently supprted only by the SupervisedLearning masker

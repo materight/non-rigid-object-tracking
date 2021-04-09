@@ -108,7 +108,7 @@ class GrabCut(Masker):
         self.prevMask = bmask.copy()
 
         # Draw resulting mask and frame
-        mask[:, :, 2] = bmask
+        mask[:, :, 2] = mask[:, :, 2] | bmask
         if SHOW_KEYPOINTS:
             for y, x in self.bgptsPrev: cv.circle(frame, (x, y), 2, (0, 0, 255), -1)
             for y, x in self.fgptsPrev: cv.circle(frame, (x, y), 2, (0, 255, 0), -1)

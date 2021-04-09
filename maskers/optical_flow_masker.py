@@ -83,7 +83,7 @@ class OpticalFlowMasker(Masker):
             self.featurePoints = self.computeFeatures(frame, grayFrame, trackingMask)
             
         # Draw new tracked points
-        mask[:,:,2] = bmask
+        mask[:,:,2] = mask[:, :, 2] | bmask
         
         #for point in self.featurePoints:
         #    x, y = point.ravel()
