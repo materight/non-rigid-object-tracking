@@ -42,7 +42,7 @@ The videos used for testing the algorithms are available in the `Input` folder. 
 After running the algorithm, the resulting mask can be found inside `Output` (or in the custom folder specified in `config.yaml`).
 
 ### Benchmark
-`benchmark.py` is a utility script to easily test different parameters combination automatically. It is useful in particular with the *SemiSupervised* tracker which has many hyper-parameters.
+`benchmark.py` is a utility script to easily test different parameters combination automatically. It is useful in particular with the *PixelClassification* tracker which has many hyper-parameters.
 
 The benchmark uses `config_benchmark.yaml` as config file (see section [Configurations](#configurations) for more details). For hyper-parameter testing, inside of `benchmark.py` two variables can be found:
 - `VIDEOS`: the file names of the video files we want to run the benchmark on. Note that if you want to add a new video to the benchmark, you need to define the points of the selection masks in `polygons.yaml`.

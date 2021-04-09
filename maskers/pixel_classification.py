@@ -35,7 +35,7 @@ class PixelClassificationNonRigidMasker(Masker):
 
         self.sift = cv.SIFT_create()     
 
-        # FLANN parameters
+        # FLANN parameters. Check Opencv feature matching documentation for more
         FLANN_INDEX_KDTREE = 1
         index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
         search_params = dict(checks=50)   # or pass empty dictionary
@@ -128,7 +128,7 @@ class PixelClassificationNonRigidMasker(Masker):
     
     def computePriors(self, crop_frame, segments, labels):
         """
-        Extract features from the image within the mask estimated at the previous step, to be matched against the frame t+1.
+        Extract features from the image within the mask estimated at the previous step, to be matched against the current frame.
         Add a prior to superpixels where such matches take place.
         """
         priors = np.full(labels.shape, fill_value=-1,  dtype=np.float32) 
@@ -156,18 +156,10 @@ class PixelClassificationNonRigidMasker(Masker):
         dist = np.array([((kp2[m.trainIdx].pt[0]-kp1[m.queryIdx].pt[0]) ** 2 + (kp2[m.trainIdx].pt[1]-kp1[m.queryIdx].pt[1]) ** 2)**0.5 for m in goodMatches])
         thrs = np.percentile(dist, 90)
         goodMatches = np.array(goodMatches)[dist <= thrs]
-        #tmp2 = np.zeros(crop_frame.shape[:2], dtype=np.uint8) 
 
         for m in goodMatches:
             label = segments[int(kp2[m.trainIdx].pt[1]), int(kp2[m.trainIdx].pt[0])]
             priors[label] = 1
-            #idxs = np.nonzero(segments == label)
-            #tmp2[idxs] += 255
-        #cv.imshow("Prior", tmp2)
-        #plt.imshow(mark_boundaries(cv.cvtColor(crop_frame, cv.COLOR_BGR2RGB), segments))
-        #plt.show()
-        #img3 = cv.drawMatchesKnn(self.prevFrame, kp1, crop_frame, kp2, [[m] for m in goodMatches], None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        #cv.imshow("Feature match", img3)
         return priors
 
 
@@ -315,24 +307,3 @@ class PixelClassificationNonRigidMasker(Masker):
                 f = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
             frames.append(f)
         return frames , params
-
-
-
-"""
-def quantifyImage(self, image, bins=(4, 6, 3)):
-        hist = cv.calcHist([image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256])
-        hist = cv.normalize(hist, hist).flatten()
-        return hist
-
-if self.index <= 5:
-    self.train_outlier.append(self.quantifyImage(frame))
-elif self.index == 6:
-    self.outlier = PCA(random_state=42, n_components=self.config["params"]["n_components"]).fit(self.train_outlier)
-    print(self.outlier.explained_variance_ratio_)
-else:
-    X = self.quantifyImage(frame)
-    X_pca = self.outlier.transform([X])
-    X_inv = self.outlier.inverse_transform(X_pca)
-    error = np.sum(np.sqrt(np.power(X - X_inv,2)), axis=1)
-    self.scores.append(error)
-"""
